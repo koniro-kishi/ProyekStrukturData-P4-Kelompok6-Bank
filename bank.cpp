@@ -6,16 +6,14 @@
 #include <algorithm>
 #define threshold 0.75
 using namespace std;
-int ukuranArray = 4; // sementara angkanya kecil untuk memastikan rehashing bekerja
 int slotTerisi = 0;
 
-enum jenisTabungan {
-    PELAJAR, 
-    PLATINUM, 
-    GOLD, 
-    DIAMOND
-}; typedef jenisTabungan jenisTab;
-string JenTab[] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
+// -------------- forward declaration ------------------
+class rekening;
+void insertToHashMap(vector<rekening*>* targetMap, rekening* input);
+rekening* cariNasabah_Norek(unsigned int norek);
+// -----------------------------------------------------
+
 
 void kapitalisasi(string* input) {
     for (int i = 0; i < input->length(); i++) {
@@ -49,15 +47,56 @@ int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int r
     }
 }    
 
+enum jenisTabungan {
+    PELAJAR, 
+    PLATINUM, 
+    GOLD, 
+    DIAMOND
+} typedef jenisTabungan;
+string jenTab[] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
+
+enum jenistransaksi{
+    SETOR,
+    TARIK,
+    TRANSFER
+} typedef jenisTransaksi;
+string jenTra[3]{"SETOR", "TARIK", "TRANSFER"};
+
+class Transaksi {
+    protected:
+        unsigned int norekAsal, nominal;
+        time_t tanggal;
+        jenisTransaksi jenisTrans;
+    
+    public:
+        Transaksi(unsigned int asal, int nml, jenisTransaksi jns)
+            {
+            norekAsal = asal;
+            nominal = nml * 100;
+            jenisTrans = jns;
+            tanggal = time(nullptr);
+        }
+    
+        virtual void printTransaksi() {
+            cout << "Jenis Transaksi: " << jenTra[jenisTrans] << endl;
+            cout << "Dari Rekening: " << norekAsal << endl;
+            cout << "Nominal: Rp" << nominal / 100 << "," << (nominal % 100 < 10 ? "0" : "") << nominal % 100 << endl;
+            cout << "Tanggal: " << ctime(&tanggal);
+        }
+    
+        virtual ~Transaksi() {}
+};
+
 class rekening {
 private:
     unsigned int norek, saldo;
     string pin, namaNasabah, NIK, domisili, noTelp, namaIbu;
-    jenisTab jenis;
+    jenisTabungan jenisTab;
     time_t waktuDibuat, waktuBerubah;
 
 public:
-    rekening(string p, string nn, string nik, string d, string nt, string ni, jenisTab j, double s) {
+    vector<Transaksi*> histori;
+    rekening(string p, string nn, string nik, string d, string nt, string ni, jenisTabungan j, double s) {
         // menyalin setiap data input
         pin = p;
         namaNasabah = nn; kapitalisasi(&namaNasabah);
@@ -65,7 +104,7 @@ public:
         domisili = d; kapitalisasi(&domisili);
         noTelp = nt;
         namaIbu = ni; kapitalisasi(&namaIbu);
-        jenis = j;
+        jenisTab = j;
         saldo = s * 100;
         norek = 0;
 
@@ -111,6 +150,7 @@ public:
         return depKoma + "," + belKoma;
     }
     string getNamaNasabah() { return namaNasabah; }
+    jenisTabungan getJenisTab() { return jenisTab; }
 
     void printInfo() {
         cout << "Nomor Rekening: " << norek << endl;
@@ -121,7 +161,7 @@ public:
         cout << "Domisili: " << domisili << endl;
         cout << "No Telp: " << noTelp << endl;
         cout << "Nama Ibu: " << namaIbu << endl;
-        cout << "Jenis Tabungan: " << JenTab[jenis] << endl;
+        cout << "Jenis Tabungan: " << jenTab[jenisTab] << endl;
         cout << "Tanggal dibuat: " << ctime(&waktuDibuat);
         cout << "Tanggal berubah: " << ctime(&waktuBerubah);
     }
@@ -130,95 +170,234 @@ public:
         jumlah *= 100;
         if (jumlah > 0) {
             saldo += jumlah;
+            Transaksi* trans = new Transaksi(norek, jumlah, SETOR);
+            tambahTransaksi(trans);
             cout << "Setoran berhasil. Saldo sekarang: " << printSaldo() << endl;
         } else {
             cout << "Jumlah setoran tidak valid." << endl;
         }
-        time(&waktuBerubah);
     }
     
     void tarik(double jumlah) {
         jumlah *= 100;
         if (jumlah > 0 && jumlah <= saldo) {
             saldo -= jumlah;
+            Transaksi* trans = new Transaksi(norek, jumlah, TARIK);
+            tambahTransaksi(trans);
             cout << "Penarikan berhasil. Saldo sekarang: " << printSaldo() << endl;
         } else {
             cout << "Penarikan gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
         }
-        time(&waktuBerubah);
     }
 
     bool kirimTransfer(double jumlah){
-        if (jumlah > 0 && jumlah <= saldo){
-            jumlah *= 100;
-            saldo -= jumlah;
+        jumlah *= 100;
+        
+        int biayaAdmin;
+        switch (jenisTab)
+        {
+        case PELAJAR:
+            biayaAdmin = 0;
+            break;
+
+        case PLATINUM:
+            biayaAdmin = 500000;
+            break;
+        
+        case GOLD:
+            biayaAdmin = 250000;
+            break;
+
+        case DIAMOND:
+            biayaAdmin = 0;
+            break;
+        }
+
+        if (jumlah > 0 && jumlah + biayaAdmin <= saldo){
+            saldo = saldo - (jumlah + biayaAdmin);
             return true;    // berhasil transfer
         } else return false; // gagal transfer
-        time(&waktuBerubah);
     }
 
     void terimaTransfer(double jumlah){
         jumlah *= 100;
         saldo += jumlah;
+    }
+
+    void tambahTransaksi(Transaksi* t) {
+        histori.push_back(t);
         time(&waktuBerubah);
+    }
+
+    ~rekening() {
+        for (Transaksi* t : histori) {
+            delete t;
+        }
     }
 };
 
-// Mendefinisi atau menginisialisasi fungsi terlebih dahulu agar bisa dipanggil oleh fungsi rehashing
-void insertToHashMap(vector<rekening*>* dafRek, int* ukuran, int* terisi, rekening* input);
+vector<rekening*> daftarRekening(4, nullptr); // daftar rekening berupa array of pointer to class
 
-// Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
-void rehashing(vector<rekening*>* dafRek, int* ukuran, int* terisi) {
-    float loadFactor = static_cast<float>(*terisi) / static_cast<float>(*ukuran);
-
-    if (loadFactor >= threshold) {
-        // Menyimpan ukuran awal agar bisa dipakai sebagai batas counter loop
-        int ukuranAwal = *ukuran;
-
-        // Memperbarui ukuran dan membuat hash map baru
-        *ukuran *= 2;
-        vector<rekening*> hashMapBaru(*ukuran, nullptr);
-
-        // Memindahkan tiap pointer rekening ke hash map yang baru
-        for (int i = 0; i < ukuranAwal; i++) {
-            if ((*dafRek)[i] != nullptr) {
-                insertToHashMap(&hashMapBaru, ukuran, terisi, (*dafRek)[i]);
+class Transfer : public Transaksi {
+    private:
+        rekening* rekeningAsal;
+        rekening* rekeningTujuan;
+        unsigned int norekTujuan;
+        int biayaAdmin;
+    
+    public:
+        Transfer(unsigned int asal, int jml, unsigned int tujuan)
+            : Transaksi(asal, jml, TRANSFER){
+                rekeningAsal = cariNasabah_Norek(norekAsal);
+                norekTujuan = tujuan;
+                rekeningTujuan = cariNasabah_Norek(tujuan);
+                switch (rekeningAsal->getJenisTab())
+                {
+                case PELAJAR:
+                    biayaAdmin = 0;
+                    break;
+    
+                case PLATINUM:
+                    biayaAdmin = 500000;
+                    break;
+                
+                case GOLD:
+                    biayaAdmin = 250000;
+                    break;
+    
+                case DIAMOND:
+                    biayaAdmin = 0;
+                    break;
+    
+                default:
+                    break;
+                }
             }
+    
+        void printTransaksi() override {
+            Transaksi::printTransaksi();
+            cout << "Ke Rekening: " << norekTujuan << endl;
+            cout << "Biaya Admin: Rp" << biayaAdmin / 100 << "," << (biayaAdmin % 100 < 10 ? "0" : "") << biayaAdmin % 100 
+            << endl;
         }
+};
 
-        // Pointer daftar rekening sekarang merujuk ke hashmap yang baru
-        *dafRek = hashMapBaru;
-    }
-}
-
-// Fungsi untuk memasukkan rekening ke dalam struktur hash map
-// Hashing dengen metode multiplication method agar ukuran hash map tidak kritis
-void insertToHashMap(vector<rekening*>* dafRek, int* ukuran, int* terisi, rekening* input) {
-
-    // memastikan load factor tidak melewati threshold
-    rehashing(dafRek, ukuran, terisi);
+void insertToHashMapWithoutRehashing(vector<rekening*>* targetMap, rekening* input) {
 
     // hash fucntion dasar
     int iProbeInsert = 0;
     unsigned int norek = input->getNorek();
     double hashVal = static_cast<double>(norek) * 0.61;
     double frac = hashVal - floor(hashVal);
-    int index = floor(frac * (*ukuran));
+    int index = floor(frac * (targetMap->size()));
 
     // probing
-    while ((*dafRek)[index] != nullptr) {
+    while ((*targetMap)[index] != nullptr) {
         ++iProbeInsert;
-        index = (index + iProbeInsert * iProbeInsert) % (*ukuran);
+        index = (index + iProbeInsert * iProbeInsert) % (targetMap->size());
     }
 
     // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
-    (*dafRek)[index] = input;
-    (*terisi)++;
+    (*targetMap)[index] = input;
+    slotTerisi++;
+}
+
+// Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
+void rehashing(vector<rekening*>* targetMap) {
+    float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
+
+    if (loadFactor >= threshold) {
+        // Membuat hash map baru
+        vector<rekening*> hashMapBaru(targetMap->size()*2, nullptr);
+
+        // Memindahkan tiap pointer rekening ke hash map yang baru
+        for (int i = 0; i < targetMap->size(); i++) {
+            if ((*targetMap)[i] != nullptr) {
+                insertToHashMapWithoutRehashing(&hashMapBaru, (*targetMap)[i]);
+            }
+        }
+
+        // Pointer daftar rekening sekarang merujuk ke hashmap yang baru
+        *targetMap = hashMapBaru;
+    }
+}
+
+// Fungsi untuk memasukkan rekening ke dalam struktur hash map
+// Hashing dengen metode multiplication method agar ukuran hash map tidak kritis
+void insertToHashMap(vector<rekening*>* targetMap, rekening* input) {
+
+    // memastikan load factor tidak melewati threshold
+    rehashing(targetMap);
+
+    // hash fucntion dasar
+    int iProbeInsert = 0;
+    unsigned int norek = input->getNorek();
+    double hashVal = static_cast<double>(norek) * 0.61;
+    double frac = hashVal - floor(hashVal);
+    int index = floor(frac * (targetMap->size()));
+
+    // probing
+    while ((*targetMap)[index] != nullptr) {
+        ++iProbeInsert;
+        index = (index + iProbeInsert * iProbeInsert) % (targetMap->size());
+    }
+
+    // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
+    (*targetMap)[index] = input;
+    slotTerisi++;
+}
+
+//search
+rekening* cariNasabah_Nama(const string& nama) {
+    string query = nama;
+    kapitalisasi(&query);
+
+    for (int i = 0; i < daftarRekening.size(); i++) {
+        if (daftarRekening[i] != nullptr) {
+            string namaNasabah = daftarRekening[i]->getNamaNasabah();
+            if (namaNasabah == query) {
+                return daftarRekening[i];
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+rekening* cariNasabah_Norek(unsigned int norek) {
+    for (int i = 0; i < daftarRekening.size(); i++) {
+        if (daftarRekening[i] != nullptr) {
+            unsigned int norekNasabah = daftarRekening[i]->getNorek();
+            if (norekNasabah == norek) {
+                return daftarRekening[i];
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+void hapusRekening(unsigned int norek) {
+    for (int i = 0; i < daftarRekening.size(); i++) {
+        if (daftarRekening[i] != nullptr){
+            if (daftarRekening[i]->getNorek() == norek){
+                rekening* hapus = daftarRekening[i];
+                daftarRekening[i] = nullptr;
+                delete hapus;
+                cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
+                return;
+            }
+        }
+    }
+    cout << "Rekening dengan norek " << norek << " tidak ditemukan.\n";
 }
 
 void transfer(rekening *pengirim, rekening *penerima, double jumlah) {
     if (pengirim->kirimTransfer(jumlah) == true) {
         penerima->terimaTransfer(jumlah);
+        Transaksi* trans = new Transfer(pengirim->getNorek(), jumlah, penerima->getNorek());
+        pengirim->tambahTransaksi(trans);
+        penerima->tambahTransaksi(trans);
         cout << "Transfer berhasil dari " << pengirim->getNamaNasabah() << " ke " << penerima->getNamaNasabah() << "." << endl;
         cout << "Saldo " << pengirim->getNamaNasabah() << ": " << pengirim->printSaldo() << endl;
         cout << "Saldo " << penerima->getNamaNasabah() << ": " << penerima->printSaldo() << endl;
@@ -227,25 +406,16 @@ void transfer(rekening *pengirim, rekening *penerima, double jumlah) {
     }
 }
 
-//search
-rekening* cariNasabah(vector<rekening*> *semuaRekening, const string& nama) {
-    string query = nama;
-    kapitalisasi(&query);
-
-    for (int i = 0; i < semuaRekening->size(); i++) {
-        if ((*semuaRekening)[i] != nullptr) {
-            string namaNasabah = (*semuaRekening)[i]->getNamaNasabah();
-            if (namaNasabah == query) {
-                return (*semuaRekening)[i];
-            }
-        }
+void tampilkanHistori(unsigned int norek) {
+    cout << "Histori Transaksi untuk Rekening " << norek << ":\n";
+    rekening* rekening = cariNasabah_Norek(norek);
+    for (auto& t : rekening->histori) {
+        t->printTransaksi();
+        cout << "---------------------\n";
     }
-
-    return nullptr;
 }
 
 int main() {
-    vector<rekening*> daftarRekening(ukuranArray, nullptr); // daftar rekening berupa array of pointer to class
 
     // Tambahkan beberapa akun untuk memicu rehashing
     vector<rekening*> semuaRekening;
@@ -256,17 +426,29 @@ int main() {
     semuaRekening.push_back(new rekening("7890", "Dina Rahayu", "3214567890123460", "Yogyakarta", "08121112222", "Rani", PLATINUM, 12000));
 
     for (auto& r : semuaRekening) {
-        insertToHashMap(&daftarRekening, &ukuranArray, &slotTerisi, r);
+        insertToHashMap(&daftarRekening, r);
     }
 
     cout << "Isi data rekening setelah rehashing:\n";
-    for (auto& r : semuaRekening) {
-        r->printInfo();
-        cout << "----------\n";
+    for (auto& r : daftarRekening) {
+        if (r != nullptr)
+        {
+            r->printInfo();
+            cout << "----------\n";
+        }
     }
 
     cout << "Mencari nasabah bernama PUTRI MELATI...\n";
-    rekening* hasil = cariNasabah(&daftarRekening, "Putri Melati");
+    rekening* hasil = cariNasabah_Nama("Putri Melati");
+    if (hasil != nullptr) {
+        hasil->printInfo();
+    } else {
+        cout << "Nasabah tidak ditemukan.\n";
+    }
+    cout << "----------\n";
+    hapusRekening(1906946485); // Putri Melati
+    cout << "Mencari nasabah bernama PUTRI MELATI...\n";
+    hasil = cariNasabah_Nama("Putri Melati");
     if (hasil != nullptr) {
         hasil->printInfo();
     } else {
@@ -304,15 +486,19 @@ int main() {
     // Tes Transfer - gagal (saldo Najma kecil)
     cout << "\n[Test] Transfer Rp999999 dari Najma ke Rizky (harus gagal)\n";
     transfer(najma, rizky, 999999.00);
+    
+    cout << "\n[Test] Menampilkan histori transaksi dari Najma (norek 1754569918)\n";
+    tampilkanHistori(1754569918);
 
-
+    // Entah kenapa error
     // Pembersihan memori
-    for (int i = 0; i < ukuranArray; i++) {
-        if (daftarRekening[i] != nullptr) {
-            delete daftarRekening[i];
-            daftarRekening[i] = nullptr;
-        }
-    }
+    // for (rekening* r : daftarRekening) {
+    //     delete r;  // akan memanggil destructor dan membersihkan histori transaksi juga
+    // }
+
+    // for (rekening* r : semuaRekening) {
+    //     delete r;
+    // }
 
     return 0;
 }
