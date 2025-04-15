@@ -4,48 +4,35 @@
 #include <cmath>
 #include <vector>
 #include <algorithm>
-#define threshold 0.75
 using namespace std;
+
+// ------------------------------ FORWARD DECLARATION --------------------------------------
+// fungsi2 disini dideklarasi duluan tanpa defini dia ngapain
+// fungsi lain yang didefinsikan duluan bisa manggil fungsi forward declaration
+// misal cariNasabah_Norek. Dia dipanggil di constructor class Transfer
+// meskipun didefinisikan di bawah class Transfer
+
+void kapitalisasi(string* input);
+int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int right);
+class Rekening;
+Rekening* cariNasabah_Norek(unsigned int norek);
+Rekening* hashSearch(unsigned int norek);
+
+// -----------------------------------------------------------------------------------------
+
+
+// -------------------------------- GLOBAL VARIABLE ----------------------------------------
+// Variable yang bisa diakses di seluruh letak program
+
+double threshold = 0.75;
 int slotTerisi = 0;
-
-// -------------- forward declaration ------------------
-class rekening;
-void insertToHashMap(vector<rekening*>* targetMap, rekening* input);
-rekening* cariNasabah_Norek(unsigned int norek);
-// -----------------------------------------------------
-
-
-void kapitalisasi(string* input) {
-    for (int i = 0; i < input->length(); i++) {
-        (*input)[i] = toupper((*input)[i]);
-    }
-}
-
 vector<unsigned int> norekTerpakai;
+vector<Rekening*> daftarRekening(4, nullptr);
 
-int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int right) {
-    // Base case: jika left lebih besar dari right, berarti elemen tidak ditemukan
-    if (left > right) {
-    return -1;
-    }
+// ------------------------------------------------------------------------------------------
 
-    // Hitung indeks tengah
-    int mid = left + (right - left) / 2;
 
-    // Base case: jika elemen tengah adalah target, kembalikan indeksnya
-    if (arr[mid] == target) {
-    return mid;
-    }
-    
-    // Jika target lebih kecil dari elemen tengah, cari ke kiri
-    if (target < arr[mid]) {
-    return binarySearchRecursive(arr, target, left, mid - 1);
-    }
-    // Jika target lebih besar dari elemen tengah, cari ke kanan
-    else {
-    return binarySearchRecursive(arr, target, mid + 1, right);
-    }
-}    
+// --------------------------------- CLASS & ENUM -------------------------------------------
 
 enum jenisTabungan {
     PELAJAR, 
@@ -53,7 +40,7 @@ enum jenisTabungan {
     GOLD, 
     DIAMOND
 } typedef jenisTabungan;
-string jenTab[] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
+string jenTab[4] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
 
 enum jenistransaksi{
     SETOR,
@@ -67,6 +54,7 @@ class Transaksi {
         unsigned int norekAsal, nominal;
         time_t tanggal;
         jenisTransaksi jenisTrans;
+        Rekening* rekeningAsal;
     
     public:
         Transaksi(unsigned int asal, int nml, jenisTransaksi jns)
@@ -75,6 +63,7 @@ class Transaksi {
             nominal = nml * 100;
             jenisTrans = jns;
             tanggal = time(nullptr);
+            rekeningAsal = cariNasabah_Norek(norekAsal);
         }
     
         virtual void printTransaksi() {
@@ -87,7 +76,7 @@ class Transaksi {
         virtual ~Transaksi() {}
 };
 
-class rekening {
+class Rekening {
 private:
     unsigned int norek, saldo;
     string pin, namaNasabah, NIK, domisili, noTelp, namaIbu;
@@ -96,7 +85,7 @@ private:
 
 public:
     vector<Transaksi*> histori;
-    rekening(string p, string nn, string nik, string d, string nt, string ni, jenisTabungan j, double s) {
+    Rekening(string p, string nn, string nik, string d, string nt, string ni, jenisTabungan j, double s) {
         // menyalin setiap data input
         pin = p;
         namaNasabah = nn; kapitalisasi(&namaNasabah);
@@ -108,12 +97,12 @@ public:
         saldo = s * 100;
         norek = 0;
 
-        // Menetapkan waktu rekening dibuat menjadi waktu sistem saat ini
+        // Menetapkan waktu Rekening dibuat menjadi waktu sistem saat ini
         time(&waktuDibuat);
         time(&waktuBerubah);
 
-        // Menggenerasi nomor rekening unik (terpisah dari hash value hash map)
-        // Hal ini bertujuan menghindari nomor rekening ikut berubah ketika rehashing
+        // Menggenerasi nomor Rekening unik (terpisah dari hash value hash map)
+        // Hal ini bertujuan menghindari nomor Rekening ikut berubah ketika rehashing
         // Semacam encryption
         generateNorek(namaNasabah);
     }
@@ -139,18 +128,22 @@ public:
         sort(norekTerpakai.begin(), norekTerpakai.end()); // binarySearchRecursive hanya bisa bekerja pada data terurut
     }
 
+
+    // ------------------------- get attribute  -------------------------
+    
     unsigned int getNorek() { return norek; }
     unsigned int getSaldo() { return saldo; }
-    string printSaldo(){
-        // Menyiapkan string 2 angka di belakang koma
-        string depKoma = to_string (saldo/100);
-        int digitKoma = saldo % 100;
-        string belKoma = to_string(digitKoma);
-        if (belKoma.length() == 1) belKoma = "0" + belKoma;
-        return depKoma + "," + belKoma;
-    }
     string getNamaNasabah() { return namaNasabah; }
     jenisTabungan getJenisTab() { return jenisTab; }
+
+
+    // -------------------------- print func ----------------------------
+
+    string printSaldo(){;
+        string tepatbelkoma;
+        (saldo % 100 < 10 ? tepatbelkoma = "0" : tepatbelkoma = "");
+        return to_string(saldo / 100) + "," + tepatbelkoma + to_string(saldo % 100);
+    }
 
     void printInfo() {
         cout << "Nomor Rekening: " << norek << endl;
@@ -166,12 +159,15 @@ public:
         cout << "Tanggal berubah: " << ctime(&waktuBerubah);
     }
 
+
+    //  ----------------------- transaksi func -------------------------
+
     void setor(double jumlah) {
-        jumlah *= 100;
         if (jumlah > 0) {
+            jumlah *= 100;      // konversi dulu ke "sen"
             saldo += jumlah;
-            Transaksi* trans = new Transaksi(norek, jumlah, SETOR);
-            tambahTransaksi(trans);
+            Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // bikin log transaksi setor
+            tambahTransaksi(trans);     // tambah log transaksi ke histori transkasi
             cout << "Setoran berhasil. Saldo sekarang: " << printSaldo() << endl;
         } else {
             cout << "Jumlah setoran tidak valid." << endl;
@@ -229,26 +225,23 @@ public:
         time(&waktuBerubah);
     }
 
-    ~rekening() {
+
+    ~Rekening() {
         for (Transaksi* t : histori) {
             delete t;
         }
     }
 };
 
-vector<rekening*> daftarRekening(4, nullptr); // daftar rekening berupa array of pointer to class
-
 class Transfer : public Transaksi {
     private:
-        rekening* rekeningAsal;
-        rekening* rekeningTujuan;
+        Rekening* rekeningTujuan;
         unsigned int norekTujuan;
         int biayaAdmin;
     
     public:
         Transfer(unsigned int asal, int jml, unsigned int tujuan)
             : Transaksi(asal, jml, TRANSFER){
-                rekeningAsal = cariNasabah_Norek(norekAsal);
                 norekTujuan = tujuan;
                 rekeningTujuan = cariNasabah_Norek(tujuan);
                 switch (rekeningAsal->getJenisTab())
@@ -282,7 +275,13 @@ class Transfer : public Transaksi {
         }
 };
 
-void insertToHashMapWithoutRehashing(vector<rekening*>* targetMap, rekening* input) {
+// -----------------------------------------------------------------------------------------
+
+
+// ---------------------------- INSERTION & REHASHING --------------------------------------
+
+// Fungsi insertion ke hashmap yang tidak perlu cek threshold, dipanggil saat rehashing
+void insertToHashMapWithoutRehashing(vector<Rekening*>* targetMap, Rekening* input) {
 
     // hash fucntion dasar
     int iProbeInsert = 0;
@@ -303,28 +302,28 @@ void insertToHashMapWithoutRehashing(vector<rekening*>* targetMap, rekening* inp
 }
 
 // Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
-void rehashing(vector<rekening*>* targetMap) {
+void rehashing(vector<Rekening*>* targetMap) {
     float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
 
     if (loadFactor >= threshold) {
         // Membuat hash map baru
-        vector<rekening*> hashMapBaru(targetMap->size()*2, nullptr);
+        vector<Rekening*> hashMapBaru(targetMap->size()*2, nullptr);
 
-        // Memindahkan tiap pointer rekening ke hash map yang baru
+        // Memindahkan tiap pointer Rekening ke hash map yang baru
         for (int i = 0; i < targetMap->size(); i++) {
             if ((*targetMap)[i] != nullptr) {
                 insertToHashMapWithoutRehashing(&hashMapBaru, (*targetMap)[i]);
             }
         }
 
-        // Pointer daftar rekening sekarang merujuk ke hashmap yang baru
+        // Pointer daftar Rekening sekarang merujuk ke hashmap yang baru
         *targetMap = hashMapBaru;
     }
 }
 
-// Fungsi untuk memasukkan rekening ke dalam struktur hash map
+// Fungsi untuk memasukkan Rekening ke dalam struktur hash map
 // Hashing dengen metode multiplication method agar ukuran hash map tidak kritis
-void insertToHashMap(vector<rekening*>* targetMap, rekening* input) {
+void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
 
     // memastikan load factor tidak melewati threshold
     rehashing(targetMap);
@@ -347,33 +346,41 @@ void insertToHashMap(vector<rekening*>* targetMap, rekening* input) {
     slotTerisi++;
 }
 
-//search
-rekening* cariNasabah_Nama(const string& nama) {
+// -----------------------------------------------------------------------------------------
+
+
+// ----------------------------- SEARCHING & DELETION --------------------------------------
+
+Rekening* cariNasabah_Nama(const string& nama) {
     string query = nama;
     kapitalisasi(&query);
 
+    // loop untuk mencari pointer dengan nama nasabah dicari
     for (int i = 0; i < daftarRekening.size(); i++) {
-        if (daftarRekening[i] != nullptr) {
-            string namaNasabah = daftarRekening[i]->getNamaNasabah();
-            if (namaNasabah == query) {
-                return daftarRekening[i];
+        if (daftarRekening[i] != nullptr) {                             // kalau null gak usah dicek
+            if (query == daftarRekening[i]->getNamaNasabah()) {         // mencocokkan nama nasabah
+                return daftarRekening[i];                               // benar: balikkan pointer
             }
         }
     }
 
+    // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
+    cout << "Nasabah dengan nama " << query << " tidak ditemukan" << endl;
     return nullptr;
 }
 
-rekening* cariNasabah_Norek(unsigned int norek) {
+Rekening* cariNasabah_Norek(unsigned int norek) {
+    // loop untuk mencari pointer dengan nama nasabah dicari
     for (int i = 0; i < daftarRekening.size(); i++) {
-        if (daftarRekening[i] != nullptr) {
-            unsigned int norekNasabah = daftarRekening[i]->getNorek();
-            if (norekNasabah == norek) {
-                return daftarRekening[i];
+        if (daftarRekening[i] != nullptr) {                 // kalau null gak usah dicek
+            if (norek == daftarRekening[i]->getNorek()) {   // mencocokkan nomor rekening
+                return daftarRekening[i];                   // benar: balikkan pointer
             }
         }
     }
 
+    // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
+    cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
     return nullptr;
 }
 
@@ -381,7 +388,7 @@ void hapusRekening(unsigned int norek) {
     for (int i = 0; i < daftarRekening.size(); i++) {
         if (daftarRekening[i] != nullptr){
             if (daftarRekening[i]->getNorek() == norek){
-                rekening* hapus = daftarRekening[i];
+                Rekening* hapus = daftarRekening[i];
                 daftarRekening[i] = nullptr;
                 delete hapus;
                 cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
@@ -392,7 +399,7 @@ void hapusRekening(unsigned int norek) {
     cout << "Rekening dengan norek " << norek << " tidak ditemukan.\n";
 }
 
-void transfer(rekening *pengirim, rekening *penerima, double jumlah) {
+void transfer(Rekening *pengirim, Rekening *penerima, double jumlah) {
     if (pengirim->kirimTransfer(jumlah) == true) {
         penerima->terimaTransfer(jumlah);
         Transaksi* trans = new Transfer(pengirim->getNorek(), jumlah, penerima->getNorek());
@@ -406,30 +413,70 @@ void transfer(rekening *pengirim, rekening *penerima, double jumlah) {
     }
 }
 
+// -----------------------------------------------------------------------------------------
+
+
+// ---------------------------------- MISCELLANEOUS -----------------------------------------
+
+void kapitalisasi(string* input) {
+    for (int i = 0; i < input->length(); i++) {
+        (*input)[i] = toupper((*input)[i]);
+    }
+}
+
+int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int right) {
+    // Base case: jika left lebih besar dari right, berarti elemen tidak ditemukan
+    if (left > right) {
+    return -1;
+    }
+
+    // Hitung indeks tengah
+    int mid = left + (right - left) / 2;
+
+    // Base case: jika elemen tengah adalah target, kembalikan indeksnya
+    if (arr[mid] == target) {
+    return mid;
+    }
+    
+    // Jika target lebih kecil dari elemen tengah, cari ke kiri
+    if (target < arr[mid]) {
+    return binarySearchRecursive(arr, target, left, mid - 1);
+    }
+    // Jika target lebih besar dari elemen tengah, cari ke kanan
+    else {
+    return binarySearchRecursive(arr, target, mid + 1, right);
+    }
+}    
+
 void tampilkanHistori(unsigned int norek) {
     cout << "Histori Transaksi untuk Rekening " << norek << ":\n";
-    rekening* rekening = cariNasabah_Norek(norek);
-    for (auto& t : rekening->histori) {
+    Rekening* Rekening = cariNasabah_Norek(norek);
+    for (auto& t : Rekening->histori) {
         t->printTransaksi();
         cout << "---------------------\n";
     }
 }
 
+// [UNDER CONSTRUCTION] hashSearch
+
+// -----------------------------------------------------------------------------------------
+
+
 int main() {
 
     // Tambahkan beberapa akun untuk memicu rehashing
-    vector<rekening*> semuaRekening;
-    semuaRekening.push_back(new rekening("1234", "Najma Hamida", "3214567890123456", "Jakarta", "08123456789", "Sari", PLATINUM, 15000.76));
-    semuaRekening.push_back(new rekening("5678", "Rizky Aditya", "3214567890123457", "Bandung", "08129876543", "Lina", GOLD, 18000));
-    semuaRekening.push_back(new rekening("9012", "Putri Melati", "3214567890123458", "Surabaya", "08123455555", "Maya", DIAMOND, 20000));
-    semuaRekening.push_back(new rekening("3456", "Adit Saputra", "3214567890123459", "Medan", "08127778888", "Rika", PELAJAR, 5000));
-    semuaRekening.push_back(new rekening("7890", "Dina Rahayu", "3214567890123460", "Yogyakarta", "08121112222", "Rani", PLATINUM, 12000));
+    vector<Rekening*> semuaRekening;
+    semuaRekening.push_back(new Rekening("1234", "Najma Hamida", "3214567890123456", "Jakarta", "08123456789", "Sari", PLATINUM, 15000.76));
+    semuaRekening.push_back(new Rekening("5678", "Rizky Aditya", "3214567890123457", "Bandung", "08129876543", "Lina", GOLD, 18000));
+    semuaRekening.push_back(new Rekening("9012", "Putri Melati", "3214567890123458", "Surabaya", "08123455555", "Maya", DIAMOND, 20000));
+    semuaRekening.push_back(new Rekening("3456", "Adit Saputra", "3214567890123459", "Medan", "08127778888", "Rika", PELAJAR, 5000));
+    semuaRekening.push_back(new Rekening("7890", "Dina Rahayu", "3214567890123460", "Yogyakarta", "08121112222", "Rani", PLATINUM, 12000));
 
     for (auto& r : semuaRekening) {
         insertToHashMap(&daftarRekening, r);
     }
 
-    cout << "Isi data rekening setelah rehashing:\n";
+    cout << "Isi data Rekening setelah rehashing:\n";
     for (auto& r : daftarRekening) {
         if (r != nullptr)
         {
@@ -438,16 +485,36 @@ int main() {
         }
     }
 
-    cout << "Mencari nasabah bernama PUTRI MELATI...\n";
-    rekening* hasil = cariNasabah_Nama("Putri Melati");
+
+    // ---------------------------------------------------------------------------
+    cout << "\n--- TEST cari nasabah nama dan norek ---\n";
+    // ---------------------------------------------------------------------------
+
+    cout << "Mencari nasabah bernama PUTRI MELATI\n";
+    Rekening* hasil = cariNasabah_Nama("Putri Melati");
     if (hasil != nullptr) {
         hasil->printInfo();
     } else {
         cout << "Nasabah tidak ditemukan.\n";
     }
     cout << "----------\n";
+
+    cout << "Mencari nasabah dengan nomor rekening 1906946485\n";
+    Rekening* hasil2 = cariNasabah_Nama("Putri Melati");
+    if (hasil2 != nullptr) {
+        hasil2->printInfo();
+    } else {
+        cout << "Nasabah tidak ditemukan.\n";
+    }
+    cout << "----------\n";
+
+
+    // ---------------------------------------------------------------------------
+    cout << "\n--- TEST hapus rekening ---\n";
+    // ---------------------------------------------------------------------------
+
     hapusRekening(1906946485); // Putri Melati
-    cout << "Mencari nasabah bernama PUTRI MELATI...\n";
+    cout << "\nMencari nasabah bernama PUTRI MELATI...\n";
     hasil = cariNasabah_Nama("Putri Melati");
     if (hasil != nullptr) {
         hasil->printInfo();
@@ -456,26 +523,29 @@ int main() {
     }
     cout << "----------\n";
 
-    cout << "\n--- TEST SETOR, TARIK, TRANSFER ---\n";
 
-    // Ambil pointer ke rekening tertentu
-    rekening* najma = semuaRekening[0]; // Najma Hamida
-    rekening* rizky = semuaRekening[1]; // Rizky Aditya
+    // ---------------------------------------------------------------------------
+    cout << "\n--- TEST setor, tarik, transfer ---\n";
+    // ---------------------------------------------------------------------------
+
+    // Ambil pointer ke Rekening tertentu
+    Rekening* najma = semuaRekening[0]; // Najma Hamida
+    Rekening* rizky = semuaRekening[1]; // Rizky Aditya
 
     // Tes Setor
-    cout << "\n[Test] Setor Rp5000 ke rekening Najma\n";
+    cout << "\n[Test] Setor Rp5000 ke Rekening Najma\n";
     cout << "Saldo Najma sebelum setor: Rp" << najma->printSaldo() << endl;
     najma->setor(5000.00); // Tambah Rp5000
     cout << "Saldo Najma setelah setor: Rp" << najma->printSaldo() << endl;
 
     // Tes Tarik - berhasil
-    cout << "\n[Test] Tarik Rp3000 dari rekening Najma\n";
+    cout << "\n[Test] Tarik Rp3000 dari Rekening Najma\n";
     cout << "Saldo Najma sebelum tarik: Rp" << najma->printSaldo() << endl;
     najma->tarik(3000.00); // Kurangi Rp3000
     cout << "Saldo Najma setelah tarik: Rp" << najma->printSaldo() << endl;
 
     // Tes Tarik - gagal (melebihi saldo)
-    cout << "\n[Test] Tarik Rp999999 dari rekening Najma (harus gagal)\n";
+    cout << "\n[Test] Tarik Rp999999 dari Rekening Najma (harus gagal)\n";
     najma->tarik(999999.00); // Harus gagal
     cout << "Saldo Najma tetap: Rp" << najma->printSaldo() << endl;
 
@@ -487,16 +557,21 @@ int main() {
     cout << "\n[Test] Transfer Rp999999 dari Najma ke Rizky (harus gagal)\n";
     transfer(najma, rizky, 999999.00);
     
-    cout << "\n[Test] Menampilkan histori transaksi dari Najma (norek 1754569918)\n";
+    // ---------------------------------------------------------------------------
+    cout << "\n--- TEST histori transaksi ---\n";
+    // ---------------------------------------------------------------------------
+
+    cout << "Menampilkan histori transaksi dari Najma (norek 1754569918)\n";
     tampilkanHistori(1754569918);
+
 
     // Entah kenapa error
     // Pembersihan memori
-    // for (rekening* r : daftarRekening) {
+    // for (Rekening* r : daftarRekening) {
     //     delete r;  // akan memanggil destructor dan membersihkan histori transaksi juga
     // }
 
-    // for (rekening* r : semuaRekening) {
+    // for (Rekening* r : semuaRekening) {
     //     delete r;
     // }
 
