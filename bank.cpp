@@ -14,9 +14,9 @@ using namespace std;
 
 void kapitalisasi(string* input);
 int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int right);
+class Transaksi;
 class Rekening;
 Rekening* cariNasabah_Norek(unsigned int norek);
-Rekening* hashSearch(unsigned int norek);
 
 // -----------------------------------------------------------------------------------------
 
@@ -28,6 +28,8 @@ double threshold = 0.75;
 int slotTerisi = 0;
 vector<unsigned int> norekTerpakai;
 vector<Rekening*> daftarRekening(4, nullptr);
+vector<Transaksi*> daftarTransaksi;
+int jumlahTransaksi = -1;
 
 // ------------------------------------------------------------------------------------------
 
@@ -190,23 +192,11 @@ public:
         jumlah *= 100;
         
         int biayaAdmin;
-        switch (jenisTab)
-        {
-        case PELAJAR:
-            biayaAdmin = 0;
-            break;
-
-        case PLATINUM:
-            biayaAdmin = 500000;
-            break;
-        
-        case GOLD:
-            biayaAdmin = 250000;
-            break;
-
-        case DIAMOND:
-            biayaAdmin = 0;
-            break;
+        switch (jenisTab) {
+        case PELAJAR:   biayaAdmin = 0;         break;
+        case PLATINUM:  biayaAdmin = 500000;    break;
+        case GOLD:      biayaAdmin = 250000;    break;
+        case DIAMOND:   biayaAdmin = 0;          break;
         }
 
         if (jumlah > 0 && jumlah + biayaAdmin <= saldo){
@@ -233,6 +223,7 @@ public:
     }
 };
 
+// Transfer di bawah rekening soalnya manggil fungsi milik class rekening
 class Transfer : public Transaksi {
     private:
         Rekening* rekeningTujuan;
@@ -370,18 +361,27 @@ Rekening* cariNasabah_Nama(const string& nama) {
 }
 
 Rekening* cariNasabah_Norek(unsigned int norek) {
-    // loop untuk mencari pointer dengan nama nasabah dicari
-    for (int i = 0; i < daftarRekening.size(); i++) {
-        if (daftarRekening[i] != nullptr) {                 // kalau null gak usah dicek
-            if (norek == daftarRekening[i]->getNorek()) {   // mencocokkan nomor rekening
-                return daftarRekening[i];                   // benar: balikkan pointer
-            }
-        }
-    }
+    
+    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
+    {
+        // hash fucntion dasar
+        int iProbeSearch = 0;
+        double hashVal = static_cast<double>(norek) * 0.61;
+        double frac = hashVal - floor(hashVal);
+        int index = floor(frac * (daftarRekening.size()));
 
-    // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
-    cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
-    return nullptr;
+        // probing
+        while (daftarRekening[index] == nullptr) {
+            ++iProbeSearch;
+            index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
+        }
+
+        return daftarRekening[index];
+    } else {
+        // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
+        cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
+        return nullptr;
+    }
 }
 
 void hapusRekening(unsigned int norek) {
@@ -456,8 +456,6 @@ void tampilkanHistori(unsigned int norek) {
         cout << "---------------------\n";
     }
 }
-
-// [UNDER CONSTRUCTION] hashSearch
 
 // -----------------------------------------------------------------------------------------
 
@@ -561,7 +559,7 @@ int main() {
     cout << "\n--- TEST histori transaksi ---\n";
     // ---------------------------------------------------------------------------
 
-    cout << "Menampilkan histori transaksi dari Najma (norek 1754569918)\n";
+    cout << "Menampilkan histori transaksi dari Najma 1754569918\n";
     tampilkanHistori(1754569918);
 
 
