@@ -1,3 +1,12 @@
+/*
+    ini syafiqnya aja yang emang rada meticulous
+    saldo disini itu disimpen dalam satuan yen
+    nominal x 100
+    misal Rp1000,00 --> 1000.00 x 100 = 100000
+    gunanya untuk menghindari error operasi float dan boolean
+    yaitu 0.0 bisa jadi 0.000000001
+*/
+
 #include <iostream>
 #include <string>
 #include <ctime>
@@ -28,8 +37,7 @@ double threshold = 0.75;
 int slotTerisi = 0;
 vector<unsigned int> norekTerpakai;
 vector<Rekening*> daftarRekening(4, nullptr);
-vector<Transaksi*> daftarTransaksi;
-int jumlahTransaksi = -1;
+Transaksi* HeadTransaksiSemua = nullptr;
 
 // ------------------------------------------------------------------------------------------
 
@@ -53,27 +61,50 @@ string jenTra[3]{"SETOR", "TARIK", "TRANSFER"};
 
 class Transaksi {
     protected:
-        unsigned int norekAsal, nominal;
+        unsigned int norekAsal, jumlah;
         time_t tanggal;
         jenisTransaksi jenisTrans;
         Rekening* rekeningAsal;
     
     public:
-        Transaksi(unsigned int asal, int nml, jenisTransaksi jns)
+        Transaksi* nextTransaksiSemua;
+
+        Transaksi(unsigned int asal, int jml, jenisTransaksi jns)
             {
             norekAsal = asal;
-            nominal = nml * 100;
+            jumlah = jml * 100;
             jenisTrans = jns;
             tanggal = time(nullptr);
             rekeningAsal = cariNasabah_Norek(norekAsal);
+            
+            if (HeadTransaksiSemua == nullptr)
+            {
+                HeadTransaksiSemua = this;
+                nextTransaksiSemua = nullptr;
+            } else {
+                nextTransaksiSemua = HeadTransaksiSemua;
+                HeadTransaksiSemua = this;
+            }
         }
     
+        int getjumlah(){ return jumlah; }
+        jenisTransaksi getJenisTransaksi(){ return jenisTrans; }
+        Rekening* getRekeningAsal(){ return rekeningAsal; }
+        virtual Rekening* getRekeningTujuan(){ return nullptr; }
+        virtual int getBiayaAdmin(){ return -1; }
+
         virtual void printTransaksi() {
             cout << "Jenis Transaksi: " << jenTra[jenisTrans] << endl;
             cout << "Dari Rekening: " << norekAsal << endl;
-            cout << "Nominal: Rp" << nominal / 100 << "," << (nominal % 100 < 10 ? "0" : "") << nominal % 100 << endl;
+            cout << "jumlah: Rp" << jumlah / 100 << "," << (jumlah % 100 < 10 ? "0" : "") << jumlah % 100 << endl;
             cout << "Tanggal: " << ctime(&tanggal);
         }
+
+        void rekeningDihapus(){
+            rekeningAsal = nullptr;
+        }
+
+        virtual void rekeningTujuanDihapus(){};
     
         virtual ~Transaksi() {}
 };
@@ -169,11 +200,16 @@ public:
             jumlah *= 100;      // konversi dulu ke "sen"
             saldo += jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // bikin log transaksi setor
-            tambahTransaksi(trans);     // tambah log transaksi ke histori transkasi
+            tambahTransaksiAkun(trans);     // tambah log transaksi ke histori transkasi
             cout << "Setoran berhasil. Saldo sekarang: " << printSaldo() << endl;
         } else {
             cout << "Jumlah setoran tidak valid." << endl;
         }
+    }
+
+    void balikinSetor(double jumlah){
+        jumlah *= 100;
+        saldo -= jumlah;
     }
     
     void tarik(double jumlah) {
@@ -181,11 +217,16 @@ public:
         if (jumlah > 0 && jumlah <= saldo) {
             saldo -= jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, TARIK);
-            tambahTransaksi(trans);
+            tambahTransaksiAkun(trans);
             cout << "Penarikan berhasil. Saldo sekarang: " << printSaldo() << endl;
         } else {
             cout << "Penarikan gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
         }
+    }
+
+    void balikinTarik(double jumlah){
+        jumlah *= 100;
+        saldo += jumlah;
     }
 
     bool kirimTransfer(double jumlah){
@@ -196,7 +237,7 @@ public:
         case PELAJAR:   biayaAdmin = 0;         break;
         case PLATINUM:  biayaAdmin = 500000;    break;
         case GOLD:      biayaAdmin = 250000;    break;
-        case DIAMOND:   biayaAdmin = 0;          break;
+        case DIAMOND:   biayaAdmin = 0;         break;
         }
 
         if (jumlah > 0 && jumlah + biayaAdmin <= saldo){
@@ -205,12 +246,21 @@ public:
         } else return false; // gagal transfer
     }
 
+    void balikinKirimTransfer(double jumlah, int biayaAdmin){
+        int balik = (jumlah + static_cast<double>(biayaAdmin));
+        saldo += balik;
+    }
+
     void terimaTransfer(double jumlah){
         jumlah *= 100;
         saldo += jumlah;
     }
 
-    void tambahTransaksi(Transaksi* t) {
+    void balikinTerimaTransfer(double jumlah){
+        saldo -= jumlah;
+    }
+
+    void tambahTransaksiAkun(Transaksi* t) {
         histori.push_back(t);
         time(&waktuBerubah);
     }
@@ -235,34 +285,26 @@ class Transfer : public Transaksi {
             : Transaksi(asal, jml, TRANSFER){
                 norekTujuan = tujuan;
                 rekeningTujuan = cariNasabah_Norek(tujuan);
-                switch (rekeningAsal->getJenisTab())
-                {
-                case PELAJAR:
-                    biayaAdmin = 0;
-                    break;
-    
-                case PLATINUM:
-                    biayaAdmin = 500000;
-                    break;
-                
-                case GOLD:
-                    biayaAdmin = 250000;
-                    break;
-    
-                case DIAMOND:
-                    biayaAdmin = 0;
-                    break;
-    
-                default:
-                    break;
+                switch (rekeningAsal->getJenisTab()) {
+                    case PELAJAR:   biayaAdmin = 0;         break;
+                    case PLATINUM:  biayaAdmin = 500000;    break;
+                    case GOLD:      biayaAdmin = 250000;    break;
+                    case DIAMOND:   biayaAdmin = 0;         break;
                 }
             }
     
+        Rekening* getRekeningTujuan() override { return rekeningTujuan; }
+        int getBiayaAdmin() override { return biayaAdmin; }
+
         void printTransaksi() override {
             Transaksi::printTransaksi();
             cout << "Ke Rekening: " << norekTujuan << endl;
             cout << "Biaya Admin: Rp" << biayaAdmin / 100 << "," << (biayaAdmin % 100 < 10 ? "0" : "") << biayaAdmin % 100 
             << endl;
+        }
+
+        void rekeningTujuanDihapus() override {
+            rekeningTujuan = nullptr;
         }
 };
 
@@ -385,31 +427,44 @@ Rekening* cariNasabah_Norek(unsigned int norek) {
 }
 
 void hapusRekening(unsigned int norek) {
-    for (int i = 0; i < daftarRekening.size(); i++) {
-        if (daftarRekening[i] != nullptr){
-            if (daftarRekening[i]->getNorek() == norek){
-                Rekening* hapus = daftarRekening[i];
-                daftarRekening[i] = nullptr;
-                delete hapus;
-                cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
-                return;
-            }
-        }
-    }
-    cout << "Rekening dengan norek " << norek << " tidak ditemukan.\n";
-}
+    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
+    {
+        // hash fucntion dasar
+        int iProbeSearch = 0;
+        double hashVal = static_cast<double>(norek) * 0.61;
+        double frac = hashVal - floor(hashVal);
+        int index = floor(frac * (daftarRekening.size()));
 
-void transfer(Rekening *pengirim, Rekening *penerima, double jumlah) {
-    if (pengirim->kirimTransfer(jumlah) == true) {
-        penerima->terimaTransfer(jumlah);
-        Transaksi* trans = new Transfer(pengirim->getNorek(), jumlah, penerima->getNorek());
-        pengirim->tambahTransaksi(trans);
-        penerima->tambahTransaksi(trans);
-        cout << "Transfer berhasil dari " << pengirim->getNamaNasabah() << " ke " << penerima->getNamaNasabah() << "." << endl;
-        cout << "Saldo " << pengirim->getNamaNasabah() << ": " << pengirim->printSaldo() << endl;
-        cout << "Saldo " << penerima->getNamaNasabah() << ": " << penerima->printSaldo() << endl;
+        // probing
+        while (daftarRekening[index] == nullptr) {
+            ++iProbeSearch;
+            index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
+        }
+
+        // menghindari pointer dangling pada transaksi
+        Transaksi* bantu = HeadTransaksiSemua;
+        while (bantu != nullptr)
+        {
+            if (bantu->getRekeningAsal()->getNorek() == norek) bantu->rekeningDihapus();
+
+            if (bantu->getJenisTransaksi() == TRANSFER)
+            {
+                if (bantu->getRekeningTujuan()->getNorek() == norek) bantu->rekeningTujuanDihapus();
+            }
+            
+            bantu = bantu->nextTransaksiSemua;
+        }
+
+        // hapus rekening
+        Rekening* hapus = daftarRekening[index];
+        daftarRekening[index] = nullptr;
+        delete hapus;
+        cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
+        return;
     } else {
-        cout << "Transfer gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
+        // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
+        cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
+        return;
     }
 }
 
@@ -448,12 +503,69 @@ int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int r
     }
 }    
 
+void transfer(Rekening *pengirim, Rekening *penerima, double jumlah) {
+    if (pengirim->kirimTransfer(jumlah) == true) {
+        penerima->terimaTransfer(jumlah);
+        Transaksi* trans = new Transfer(pengirim->getNorek(), jumlah, penerima->getNorek());
+        pengirim->tambahTransaksiAkun(trans);
+        penerima->tambahTransaksiAkun(trans);
+        cout << "Transfer berhasil dari " << pengirim->getNamaNasabah() << " ke " << penerima->getNamaNasabah() << "." << endl;
+        cout << "Saldo " << pengirim->getNamaNasabah() << ": " << pengirim->printSaldo() << endl;
+        cout << "Saldo " << penerima->getNamaNasabah() << ": " << penerima->printSaldo() << endl;
+    } else {
+        cout << "Transfer gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
+    }
+}
+
 void tampilkanHistori(unsigned int norek) {
     cout << "Histori Transaksi untuk Rekening " << norek << ":\n";
     Rekening* Rekening = cariNasabah_Norek(norek);
     for (auto& t : Rekening->histori) {
         t->printTransaksi();
         cout << "---------------------\n";
+    }
+}
+
+void undoTransaksi(){
+    bool success = true;
+
+    // balikin uangnya
+    switch (HeadTransaksiSemua->getJenisTransaksi())
+    {
+    case SETOR:
+        HeadTransaksiSemua->getRekeningAsal()->balikinSetor(HeadTransaksiSemua->getjumlah());
+        break;
+
+    case TARIK:
+        HeadTransaksiSemua->getRekeningAsal()->balikinTarik(HeadTransaksiSemua->getjumlah());
+        break;
+
+    case TRANSFER:
+        if (HeadTransaksiSemua->getRekeningAsal() != nullptr && HeadTransaksiSemua->getRekeningTujuan() != nullptr)
+        {
+            // balikin uang pengirim
+            HeadTransaksiSemua->getRekeningAsal()
+            ->balikinKirimTransfer(HeadTransaksiSemua->getjumlah(), HeadTransaksiSemua->getBiayaAdmin());
+            // balikin uang penerima
+            HeadTransaksiSemua->getRekeningTujuan()
+            ->balikinTerimaTransfer(HeadTransaksiSemua->getjumlah());
+        } else {
+            success = false;
+            cout << "Salah satu rekening sudah dihapus sehingga transaksi tidak bisa di-undo\n";
+        }
+        break;
+
+    default:
+        break;
+    }
+
+    // geser head
+    if (success)
+    {
+        Transaksi* hapus = HeadTransaksiSemua;
+        HeadTransaksiSemua = HeadTransaksiSemua->nextTransaksiSemua;
+        delete hapus;
+        cout << "Transaksi terakhir berhasil dibatalkan\n";
     }
 }
 
@@ -561,6 +673,19 @@ int main() {
 
     cout << "Menampilkan histori transaksi dari Najma 1754569918\n";
     tampilkanHistori(1754569918);
+
+    // ---------------------------------------------------------------------------
+    cout << "\n--- TEST undo transaksi ---\n";
+    // ---------------------------------------------------------------------------
+
+    cout << "Membatalkan transaksi terakhir yaitu:\n";
+    HeadTransaksiSemua->printTransaksi();
+    cout << "Saldo Najma sebelum pembatalan transaksi: " << cariNasabah_Nama("NAJMA HAMIDA")->printSaldo() << endl;
+    cout << "Saldo Rizky sebelum pembatalan transaksi: " << cariNasabah_Nama("Rizky Aditya")->printSaldo() << endl;
+    undoTransaksi();
+    cout << "Saldo Najma setelah pembatalan transaksi: " << cariNasabah_Nama("NAJMA HAMIDA")->printSaldo() << endl;
+    cout << "Saldo Rizky setelah pembatalan transaksi: " << cariNasabah_Nama("Rizky Aditya")->printSaldo() << endl;
+
 
 
     // Entah kenapa error
