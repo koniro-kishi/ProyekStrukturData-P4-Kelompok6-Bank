@@ -26,6 +26,7 @@ int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int r
 class Transaksi;
 class Rekening;
 Rekening* cariNasabah_Norek(unsigned int norek);
+unsigned int UangInputKeSistem(double a){ return a * 100; };
 
 // -----------------------------------------------------------------------------------------
 
@@ -72,7 +73,7 @@ class Transaksi {
         Transaksi(unsigned int asal, int jml, jenisTransaksi jns)
             {
             norekAsal = asal;
-            jumlah = jml * 100;
+            jumlah = jml;
             jenisTrans = jns;
             tanggal = time(nullptr);
             rekeningAsal = cariNasabah_Norek(norekAsal);
@@ -195,9 +196,9 @@ public:
 
     //  ----------------------- transaksi func -------------------------
 
-    void setor(double jumlah) {
-        if (jumlah > 0) {
-            jumlah *= 100;      // konversi dulu ke "sen"
+    void setor(double jml) {
+        if (jml > 0) {
+            unsigned int jumlah = UangInputKeSistem(jml);
             saldo += jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // bikin log transaksi setor
             tambahTransaksiAkun(trans);     // tambah log transaksi ke histori transkasi
@@ -207,13 +208,12 @@ public:
         }
     }
 
-    void balikinSetor(double jumlah){
-        jumlah *= 100;
-        saldo -= jumlah;
+    void balikinSetor(unsigned int jml){
+        saldo -= jml;
     }
     
-    void tarik(double jumlah) {
-        jumlah *= 100;
+    void tarik(double jml) {
+        unsigned int jumlah = UangInputKeSistem(jml);
         if (jumlah > 0 && jumlah <= saldo) {
             saldo -= jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, TARIK);
@@ -224,39 +224,40 @@ public:
         }
     }
 
-    void balikinTarik(double jumlah){
-        jumlah *= 100;
+    void balikinTarik(unsigned int jumlah){
         saldo += jumlah;
     }
 
-    bool kirimTransfer(double jumlah){
-        jumlah *= 100;
-        
-        int biayaAdmin;
-        switch (jenisTab) {
-        case PELAJAR:   biayaAdmin = 0;         break;
-        case PLATINUM:  biayaAdmin = 500000;    break;
-        case GOLD:      biayaAdmin = 250000;    break;
-        case DIAMOND:   biayaAdmin = 0;         break;
+    bool kirimTransfer(unsigned int jumlah){
+        if (jumlah > 0) {
+            int biayaAdmin;
+            switch (jenisTab) {
+            case PELAJAR:   biayaAdmin = 0;         break;
+            case PLATINUM:  biayaAdmin = 500000;    break;
+            case GOLD:      biayaAdmin = 250000;    break;
+            case DIAMOND:   biayaAdmin = 0;         break;
+            }
+            
+            if (jumlah + biayaAdmin <= saldo)
+            {
+                saldo = saldo - (jumlah + biayaAdmin);
+                return true;
+            }
         }
 
-        if (jumlah > 0 && jumlah + biayaAdmin <= saldo){
-            saldo = saldo - (jumlah + biayaAdmin);
-            return true;    // berhasil transfer
-        } else return false; // gagal transfer
+        return false;
     }
 
-    void balikinKirimTransfer(double jumlah, int biayaAdmin){
+    void balikinKirimTransfer(unsigned int jumlah, int biayaAdmin){
         int balik = (jumlah + static_cast<double>(biayaAdmin));
         saldo += balik;
     }
 
-    void terimaTransfer(double jumlah){
-        jumlah *= 100;
+    void terimaTransfer(unsigned int jumlah){
         saldo += jumlah;
     }
 
-    void balikinTerimaTransfer(double jumlah){
+    void balikinTerimaTransfer(unsigned int jumlah){
         saldo -= jumlah;
     }
 
@@ -398,7 +399,7 @@ Rekening* cariNasabah_Nama(const string& nama) {
     }
 
     // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
-    cout << "Nasabah dengan nama " << query << " tidak ditemukan" << endl;
+    cout << "Nasabah dengan nama " << query << " tidak ditemukan atau sudah dihapus" << endl;
     return nullptr;
 }
 
@@ -412,21 +413,35 @@ Rekening* cariNasabah_Norek(unsigned int norek) {
         double frac = hashVal - floor(hashVal);
         int index = floor(frac * (daftarRekening.size()));
 
+        bool found = false;
+
         // probing
-        while (daftarRekening[index] == nullptr) {
-            ++iProbeSearch;
-            index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
+        while (daftarRekening[index] != nullptr && !found) {
+            if (daftarRekening[index]->getNorek() == norek)
+            {
+                found = true;
+            } else {
+                ++iProbeSearch;
+                index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
+            }
         }
 
+        if (daftarRekening[index] == nullptr)
+        {
+            cout << "Rekening nasabah dengan nomor rekening " << norek << " sudah terhapus.\n"; 
+        }
+        
         return daftarRekening[index];
+
     } else {
-        // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
-        cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
+        // tidak ada norek dicari di data norek yang pernah digenerate sistem
+        cout << "Tidak ada nasabah dengan nomor rekening " << norek << endl;
         return nullptr;
     }
 }
 
 void hapusRekening(unsigned int norek) {
+    
     if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
     {
         // hash fucntion dasar
@@ -435,36 +450,48 @@ void hapusRekening(unsigned int norek) {
         double frac = hashVal - floor(hashVal);
         int index = floor(frac * (daftarRekening.size()));
 
+        bool found = false;
+
         // probing
-        while (daftarRekening[index] == nullptr) {
-            ++iProbeSearch;
-            index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
-        }
-
-        // menghindari pointer dangling pada transaksi
-        Transaksi* bantu = HeadTransaksiSemua;
-        while (bantu != nullptr)
-        {
-            if (bantu->getRekeningAsal()->getNorek() == norek) bantu->rekeningDihapus();
-
-            if (bantu->getJenisTransaksi() == TRANSFER)
+        while (daftarRekening[index] != nullptr && !found) {
+            if (daftarRekening[index]->getNorek() == norek)
             {
-                if (bantu->getRekeningTujuan()->getNorek() == norek) bantu->rekeningTujuanDihapus();
+                found = true;
+            } else {
+                ++iProbeSearch;
+                index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
             }
-            
-            bantu = bantu->nextTransaksiSemua;
         }
 
-        // hapus rekening
-        Rekening* hapus = daftarRekening[index];
-        daftarRekening[index] = nullptr;
-        delete hapus;
-        cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
-        return;
+        if (daftarRekening[index] != nullptr)
+        {
+            // menghindari pointer dangling pada transaksi
+            Transaksi* bantu = HeadTransaksiSemua;
+            while (bantu != nullptr)
+            {
+                if (bantu->getRekeningAsal()->getNorek() == norek) bantu->rekeningDihapus();
+
+                if (bantu->getJenisTransaksi() == TRANSFER)
+                {
+                    if (bantu->getRekeningTujuan()->getNorek() == norek) bantu->rekeningTujuanDihapus();
+                }
+                
+                bantu = bantu->nextTransaksiSemua;
+            }
+
+            // hapus rekening
+            Rekening* hapus = daftarRekening[index];
+            daftarRekening[index] = nullptr;
+            delete hapus;
+            cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
+            return;
+        } else {
+            cout << "Rekening nasabah dengan nomor rekening " << norek << " sudah terhapus.\n";
+            return;
+        }
     } else {
-        // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
-        cout << "Nasabah dengan nomor rekening " << norek << " tidak ditemukan" << endl;
-        return;
+        // tidak ada norek dicari di data norek yang pernah digenerate sistem
+        cout << "Tidak ada nasabah dengan nomor rekening " << norek << endl;
     }
 }
 
@@ -503,7 +530,8 @@ int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int r
     }
 }    
 
-void transfer(Rekening *pengirim, Rekening *penerima, double jumlah) {
+void transfer(Rekening *pengirim, Rekening *penerima, double jml) {
+    unsigned int jumlah = UangInputKeSistem(jml);
     if (pengirim->kirimTransfer(jumlah) == true) {
         penerima->terimaTransfer(jumlah);
         Transaksi* trans = new Transfer(pengirim->getNorek(), jumlah, penerima->getNorek());
@@ -569,11 +597,7 @@ void undoTransaksi(){
     }
 }
 
-// -----------------------------------------------------------------------------------------
-
-
-int main() {
-
+void testCase() {
     // Tambahkan beberapa akun untuk memicu rehashing
     vector<Rekening*> semuaRekening;
     semuaRekening.push_back(new Rekening("1234", "Najma Hamida", "3214567890123456", "Jakarta", "08123456789", "Sari", PLATINUM, 15000.76));
@@ -685,7 +709,13 @@ int main() {
     undoTransaksi();
     cout << "Saldo Najma setelah pembatalan transaksi: " << cariNasabah_Nama("NAJMA HAMIDA")->printSaldo() << endl;
     cout << "Saldo Rizky setelah pembatalan transaksi: " << cariNasabah_Nama("Rizky Aditya")->printSaldo() << endl;
+}
+// -----------------------------------------------------------------------------------------
 
+
+int main() {
+    
+    testCase();
 
 
     // Entah kenapa error
