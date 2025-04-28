@@ -761,35 +761,27 @@ void testCase() {
 
 // ----------------------------------- User Input ------------------------------------------
 
-void userInput_lakukanTransaksi() {
-    unsigned int norek, inp_jenisTransaksi;
+void userInput_lakukanTransaksi_setor_tarik(jenisTransaksi jns){
+    unsigned int norek;
     double jumlah;
-    jenisTransaksi enum_jenisTransaksi;
 
-    cout << "=== Lakukan Transaksi ===\n";
+    switch (jns)
+    {
+    case SETOR: cout << "\n=== Transaksi - Setor ===\n"; break;
+    case TARIK: cout << "\n=== Transaksi - Tarik ===\n"; break;
+    }
+    
     cout << "Masukkan nomor rekening: ";
     cin >> norek;
     cin.ignore(); // Buang newline dari buffer
     Rekening* rekening = cariNasabah_Norek(norek);
-    
+
     if (rekening == nullptr) {
         cout << "Rekening tidak ditemukan.\n";
         return;
     }
 
-    cout << "Pilih jenis transaksi [1: Setor, 2: Tarik, 3. Transfer]: ";
-    cin >> inp_jenisTransaksi;
-    cin.ignore();
-    
-    switch (inp_jenisTransaksi)
-    {
-    case 1: enum_jenisTransaksi = SETOR; break;
-    case 2: enum_jenisTransaksi = TARIK; break;
-    case 3: enum_jenisTransaksi = TRANSFER; break;
-    default: cout << "Input tidak valid" << endl; return;
-    }
-
-    switch (enum_jenisTransaksi)
+    switch (jns)
     {
     case SETOR:
         cout << "Masukkan jumlah setor: ";
@@ -797,28 +789,62 @@ void userInput_lakukanTransaksi() {
         cin.ignore();
         rekening->setor(jumlah);
         break;
-
+    
     case TARIK:
         cout << "Masukkan jumlah tarik: ";
         cin >> jumlah;
         cin.ignore();
         rekening->tarik(jumlah);
         break;
+    }
+}
+
+void userInput_lakukanTransaksi_transfer(){
+    unsigned int inp_norek;
+    Rekening *pengirim, *penerima;
+    double jumlah;
     
-    case TRANSFER:
-        unsigned int norekTujuan;
-        cout << "Masukkan nomor rekening tujuan: ";
-        cin >> norekTujuan;
-        cin.ignore();
-        Rekening* rekeningTujuan = cariNasabah_Norek(norekTujuan);
-        
-        if (rekeningTujuan != nullptr) {
-            cout << "Masukkan jumlah transfer: ";
-            cin >> jumlah;
-            transfer(rekening, rekeningTujuan, jumlah);
-        } else {
-            cout << "Rekening tujuan tidak ditemukan.\n";
-        }
+    cout << "\n=== Transaksi - Transfer ===\n";
+    cout << "Masukkan nomor rekening pengirim: ";
+    cin >> inp_norek;
+    cin.ignore(); // Buang newline dari buffer
+    pengirim = cariNasabah_Norek(inp_norek);
+
+    if (pengirim == nullptr) {
+        cout << "Rekening pengirim tidak ditemukan tidak ditemukan.\n";
+        return;
+    }
+
+    cout << "Masukkan nomor rekening penerima: ";
+    cin >> inp_norek;
+    cin.ignore(); // Buang newline dari buffer
+    penerima = cariNasabah_Norek(inp_norek);
+
+    if (penerima == nullptr) {
+        cout << "Rekening penerima tidak ditemukan tidak ditemukan.\n";
+        return;
+    }
+
+    transfer(pengirim, penerima, jumlah);
+}
+
+void userInput_lakukanTransaksi() {
+    unsigned short int pilihan;
+
+    cout << "\n=== Lakukan Transaksi ===\n";
+    cout << "1. Setor" << endl;
+    cout << "2. Tarik" << endl;
+    cout << "3. Transfer" << endl;
+    cout << "Pilihan Anda: ";
+    cin >> pilihan;
+    cin.ignore();
+
+    switch (pilihan)
+    {
+    case 1: userInput_lakukanTransaksi_setor_tarik(SETOR); break;
+    case 2: userInput_lakukanTransaksi_setor_tarik(TARIK); break;
+    case 3: userInput_lakukanTransaksi_transfer(); break;
+    default: cout << "Input tidak valid" << endl; return;
     }
 }
 
@@ -827,7 +853,7 @@ void userInput_buatRekening() {
     int jenis;
     double saldoAwal;
 
-    cout << "=== Buat Rekening Baru ===\n";
+    cout << "\n=== Buat Rekening Baru ===\n";
     cout << "Masukkan PIN: ";
     cin >> pin;
     cin.ignore(); // Buang newline dari buffer
@@ -880,7 +906,7 @@ int main() {
         cout << "3. Buat Rekening\n";
         cout << "4. Hapus Rekening\n";
         cout << "0. Keluar\n";
-        cout << "Pilihan: ";
+        cout << "Pilihan Anda: ";
         cin >> pilihan;
 
         // Validasi input
