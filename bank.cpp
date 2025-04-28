@@ -385,16 +385,33 @@ void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
 
 // ----------------------------- SEARCHING & DELETION --------------------------------------
 
+void tampilkanSemuaNasabah(){
+    for (auto& r : daftarRekening) {
+        if (r != nullptr)
+        {
+            r->printInfo();
+            cout << "==========\n";
+        }
+    }
+}
+
 Rekening* cariNasabah_Nama(const string& nama) {
     string query = nama;
     kapitalisasi(&query);
+    cout << "Mencari nasabah dengan nama: " << query << "\n" << endl;
 
     // loop untuk mencari pointer dengan nama nasabah dicari
+    cout << "ukuran daftar rekening: " << daftarRekening.size() << endl;
     for (int i = 0; i < daftarRekening.size(); i++) {
+        cout << "Mencari di slot " << i << endl;
         if (daftarRekening[i] != nullptr) {                             // kalau null gak usah dicek
             if (query == daftarRekening[i]->getNamaNasabah()) {         // mencocokkan nama nasabah
                 return daftarRekening[i];                               // benar: balikkan pointer
+            } else {
+                cout << "Slot " << i << " tidak cocok.\n";
             }
+        } else {
+            cout << "Slot " << i << " kosong.\n";
         }
     }
 
@@ -440,7 +457,7 @@ Rekening* cariNasabah_Norek(unsigned int norek) {
     }
 }
 
-void hapusRekening(unsigned int norek) {
+void hapusRekening_Norek(unsigned int norek) {
     
     if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
     {
@@ -647,7 +664,7 @@ void testCase() {
     cout << "\n--- TEST hapus rekening ---\n";
     // ---------------------------------------------------------------------------
 
-    hapusRekening(1906946485); // Putri Melati
+    hapusRekening_Norek(1906946485); // Putri Melati
     cout << "\nMencari nasabah bernama PUTRI MELATI...\n";
     hasil = cariNasabah_Nama("Putri Melati");
     if (hasil != nullptr) {
@@ -712,21 +729,138 @@ void testCase() {
 }
 // -----------------------------------------------------------------------------------------
 
+// ----------------------------------- User Input ------------------------------------------
+
+void userInput_buatRekening() {
+    string pin, nama, nik, domisili, telp, ibu;
+    int jenis;
+    double saldoAwal;
+
+    cout << "=== Buat Rekening Baru ===\n";
+    cout << "Masukkan PIN: ";
+    cin >> pin;
+    cin.ignore(); // Buang newline dari buffer
+    cout << "Masukkan Nama: ";
+    getline(cin, nama);
+    cout << "Masukkan NIK: ";
+    getline(cin, nik);
+    cout << "Masukkan Domisili: ";
+    getline(cin, domisili);
+    cout << "Masukkan No Telp: ";
+    getline(cin, telp);
+    cout << "Masukkan Nama Ibu Kandung: ";
+    getline(cin, ibu);
+    cout << "Pilih Jenis Tabungan [0:PEL, 1:PLAT, 2:GOLD, 3:DIAMOND]: ";
+    cin >> jenis;
+    cin.ignore(); // Buang newline dari buffer
+    cout << "Masukkan Saldo Awal: ";
+    cin >> saldoAwal;
+    cin.ignore(); // Buang newline dari buffer
+
+    Rekening* baru = new Rekening(pin, nama, nik, domisili, telp, ibu, static_cast<jenisTabungan>(jenis), saldoAwal);
+    insertToHashMap(&daftarRekening, baru);
+    cout << "Rekening berhasil dibuat dengan norek: " << baru->getNorek() << endl;
+}
+
+void userInput_hapusRekening_Norek() {
+    unsigned int norek;
+    
+    cout << "=== Hapus Rekening ===\n";
+    cout << "Masukkan nomor rekening: ";
+    cin >> norek;
+    cin.ignore(); // Buang newline dari buffer
+
+    hapusRekening_Norek(norek);
+}
+
+// -----------------------------------------------------------------------------------------
 
 int main() {
-    
     testCase();
 
+    int pilihan;
+    string input_string;
+    unsigned int input_unsignedInt;
 
-    // Entah kenapa error
-    // Pembersihan memori
-    // for (Rekening* r : daftarRekening) {
-    //     delete r;  // akan memanggil destructor dan membersihkan histori transaksi juga
-    // }
+    while (true) {
+        cout << "\n=== Menu Utama ===\n";
+        cout << "1. Tampilkan Nasabah\n";
+        cout << "2. Lakukan Transaksi\n";
+        cout << "3. Buat Rekening\n";
+        cout << "4. Hapus Rekening\n";
+        cout << "0. Keluar\n";
+        cout << "Pilihan: ";
+        cin >> pilihan;
 
-    // for (Rekening* r : semuaRekening) {
-    //     delete r;
-    // }
+        // Validasi input
+        if (cin.fail()) {
+            cin.clear(); // Reset error flag
+            cin.ignore(numeric_limits<streamsize>::max(), '\n'); // Buang input yang salah
+            cout << "Input tidak valid. Masukkan angka.\n";
+            continue;
+        }
 
-    return 0;
+        cin.ignore(); // Buang newline dari buffer
+
+        switch (pilihan) {
+            case 1:
+                cout << "\n=== Menu Tampilkan Nasabah ===\n";
+                cout << "1. Tampilkan semua nasabah\n";
+                cout << "2. Cari nasabah berdasarkan nama\n";
+                cout << "3. Cari nasabah berdasarkan norek\n";
+                cout << "9. Kembali\n";
+                cout << "0. Keluar\n";
+                cout << "Pilihan Anda: ";
+                cin >> pilihan;
+                cin.ignore();
+
+                switch (pilihan) {
+                    case 1:
+                        tampilkanSemuaNasabah();
+                        break;
+                    case 2:
+                        cout << "Masukkan nama nasabah yang dicari: ";
+                        getline(cin, input_string);
+                        if (cariNasabah_Nama(input_string) != nullptr) {
+                            cariNasabah_Nama(input_string)->printInfo();
+                        } else {
+                            cout << "Nasabah tidak ditemukan.\n";
+                        }
+                        break;
+                    case 3:
+                        cout << "Masukkan nomor rekening yang dicari: ";
+                        cin >> input_unsignedInt;
+                        if (cariNasabah_Norek(input_unsignedInt) != nullptr) {
+                            cariNasabah_Norek(input_unsignedInt)->printInfo();
+                        } else {
+                            cout << "Nasabah tidak ditemukan.\n";
+                        }
+                        break;
+                    case 9:
+                        continue; // Balik ke menu utama
+                    case 0:
+                        cout << "Terima kasih!\n";
+                        return 0; // Keluar dari program
+                    default:
+                        cout << "Pilihan tidak valid.\n";
+                        break;
+                }
+                break;
+            case 2:
+                cout << "[UNDER CONSTRUCTION]" << endl;
+                break;
+            case 3:
+                userInput_buatRekening();
+                break;
+            case 4:
+                userInput_hapusRekening_Norek();
+                break;
+            case 0:
+                cout << "Terima kasih!\n";
+                return 0; // Keluar dari program
+            default:
+                cout << "Pilihan tidak valid.\n";
+                break;
+        }
+    }
 }
