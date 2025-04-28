@@ -51,20 +51,20 @@ enum jenisTabungan {
     GOLD, 
     DIAMOND
 } typedef jenisTabungan;
-string jenTab[4] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
+string vecString_jenisTabungan[4] = {"PELAJAR", "PLATINUM", "GOLD", "DIAMOND"};
 
 enum jenistransaksi{
     SETOR,
     TARIK,
     TRANSFER
 } typedef jenisTransaksi;
-string jenTra[3]{"SETOR", "TARIK", "TRANSFER"};
+string vecString_jenisTransaksi[3]{"SETOR", "TARIK", "TRANSFER"};
 
 class Transaksi {
     protected:
         unsigned int norekAsal, jumlah;
         time_t tanggal;
-        jenisTransaksi jenisTrans;
+        jenisTransaksi enum_jenisTransaksi;
         Rekening* rekeningAsal;
     
     public:
@@ -74,7 +74,7 @@ class Transaksi {
             {
             norekAsal = asal;
             jumlah = jml;
-            jenisTrans = jns;
+            enum_jenisTransaksi = jns;
             tanggal = time(nullptr);
             rekeningAsal = cariNasabah_Norek(norekAsal);
             
@@ -89,13 +89,13 @@ class Transaksi {
         }
     
         int getjumlah(){ return jumlah; }
-        jenisTransaksi getJenisTransaksi(){ return jenisTrans; }
+        jenisTransaksi getJenisTransaksi(){ return enum_jenisTransaksi; }
         Rekening* getRekeningAsal(){ return rekeningAsal; }
         virtual Rekening* getRekeningTujuan(){ return nullptr; }
         virtual int getBiayaAdmin(){ return -1; }
 
         virtual void printTransaksi() {
-            cout << "Jenis Transaksi: " << jenTra[jenisTrans] << endl;
+            cout << "Jenis Transaksi: " << vecString_jenisTransaksi[enum_jenisTransaksi] << endl;
             cout << "Dari Rekening: " << norekAsal << endl;
             cout << "jumlah: Rp" << jumlah / 100 << "," << (jumlah % 100 < 10 ? "0" : "") << jumlah % 100 << endl;
             cout << "Tanggal: " << ctime(&tanggal);
@@ -188,7 +188,7 @@ public:
         cout << "Domisili: " << domisili << endl;
         cout << "No Telp: " << noTelp << endl;
         cout << "Nama Ibu: " << namaIbu << endl;
-        cout << "Jenis Tabungan: " << jenTab[jenisTab] << endl;
+        cout << "Jenis Tabungan: " << vecString_jenisTabungan[jenisTab] << endl;
         cout << "Tanggal dibuat: " << ctime(&waktuDibuat);
         cout << "Tanggal berubah: " << ctime(&waktuBerubah);
     }
@@ -202,7 +202,7 @@ public:
             saldo += jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // bikin log transaksi setor
             tambahTransaksiAkun(trans);     // tambah log transaksi ke histori transkasi
-            cout << "Setoran berhasil. Saldo sekarang: " << printSaldo() << endl;
+            cout << "Setoran berhasil. Saldo sekarang: Rp" << printSaldo() << endl;
         } else {
             cout << "Jumlah setoran tidak valid." << endl;
         }
@@ -218,7 +218,7 @@ public:
             saldo -= jumlah;
             Transaksi* trans = new Transaksi(norek, jumlah, TARIK);
             tambahTransaksiAkun(trans);
-            cout << "Penarikan berhasil. Saldo sekarang: " << printSaldo() << endl;
+            cout << "Penarikan berhasil. Saldo sekarang: Rp" << printSaldo() << endl;
         } else {
             cout << "Penarikan gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
         }
@@ -268,9 +268,6 @@ public:
 
 
     ~Rekening() {
-        for (Transaksi* t : histori) {
-            delete t;
-        }
     }
 };
 
@@ -336,7 +333,7 @@ void insertToHashMapWithoutRehashing(vector<Rekening*>* targetMap, Rekening* inp
 }
 
 // Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
-void rehashing(vector<Rekening*>* targetMap) {
+void rehashing_insertion(vector<Rekening*>* targetMap) {
     float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
 
     if (loadFactor >= threshold) {
@@ -360,7 +357,7 @@ void rehashing(vector<Rekening*>* targetMap) {
 void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
 
     // memastikan load factor tidak melewati threshold
-    rehashing(targetMap);
+    rehashing_insertion(targetMap);
 
     // hash fucntion dasar
     int iProbeInsert = 0;
@@ -378,6 +375,22 @@ void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
     // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
     (*targetMap)[index] = input;
     slotTerisi++;
+}
+
+// Fungsi rehashing ketika ada rekening yang dihapus 
+void rehashing_deletion(vector<Rekening*>* targetMap) {
+    // Membuat hash map baru
+    vector<Rekening*> hashMapBaru(targetMap->size(), nullptr);
+
+    // Memindahkan tiap pointer Rekening ke hash map yang baru
+    for (int i = 0; i < targetMap->size(); i++) {
+        if ((*targetMap)[i] != nullptr) {
+            insertToHashMapWithoutRehashing(&hashMapBaru, (*targetMap)[i]);
+        }
+    }
+
+    // Pointer daftar Rekening sekarang merujuk ke hashmap yang baru
+    *targetMap = hashMapBaru;
 }
 
 // -----------------------------------------------------------------------------------------
@@ -398,20 +411,13 @@ void tampilkanSemuaNasabah(){
 Rekening* cariNasabah_Nama(const string& nama) {
     string query = nama;
     kapitalisasi(&query);
-    cout << "Mencari nasabah dengan nama: " << query << "\n" << endl;
 
     // loop untuk mencari pointer dengan nama nasabah dicari
-    cout << "ukuran daftar rekening: " << daftarRekening.size() << endl;
     for (int i = 0; i < daftarRekening.size(); i++) {
-        cout << "Mencari di slot " << i << endl;
         if (daftarRekening[i] != nullptr) {                             // kalau null gak usah dicek
             if (query == daftarRekening[i]->getNamaNasabah()) {         // mencocokkan nama nasabah
                 return daftarRekening[i];                               // benar: balikkan pointer
-            } else {
-                cout << "Slot " << i << " tidak cocok.\n";
             }
-        } else {
-            cout << "Slot " << i << " kosong.\n";
         }
     }
 
@@ -461,46 +467,69 @@ void hapusRekening_Norek(unsigned int norek) {
     
     if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
     {
+        // cout << "norek ada di norekTerpakai" << endl;  // testcase hapus norek
         // hash fucntion dasar
         int iProbeSearch = 0;
         double hashVal = static_cast<double>(norek) * 0.61;
         double frac = hashVal - floor(hashVal);
         int index = floor(frac * (daftarRekening.size()));
+        // cout << "pencarian awal di index " << index << endl;  // testcase hapus norek
 
         bool found = false;
 
         // probing
         while (daftarRekening[index] != nullptr && !found) {
+            // cout << "checking index " << index << endl; // testcase hapus norek
+            // cout << "daftarRekening[index]->getNorek() = " << daftarRekening[index]->getNorek() << endl;
             if (daftarRekening[index]->getNorek() == norek)
             {
+                // cout << "true" << endl; // testcase hapus norek
                 found = true;
             } else {
+                // cout << "not this one" << endl; // testcase hapus norek
                 ++iProbeSearch;
                 index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
             }
         }
 
-        if (daftarRekening[index] != nullptr)
+        Rekening *queryRekening = daftarRekening[index];
+
+        if (queryRekening != nullptr)
         {
             // menghindari pointer dangling pada transaksi
             Transaksi* bantu = HeadTransaksiSemua;
             while (bantu != nullptr)
             {
-                if (bantu->getRekeningAsal()->getNorek() == norek) bantu->rekeningDihapus();
+                bantu->printTransaksi(); // testcase hapus norek
+                if (bantu->getRekeningAsal()->getNorek() == norek) {
+                    bantu->rekeningDihapus();
+                    // cout << "ketemu transaksi oleh norek " << norek << endl; // testcase hapus norek
+                }
 
                 if (bantu->getJenisTransaksi() == TRANSFER)
                 {
-                    if (bantu->getRekeningTujuan()->getNorek() == norek) bantu->rekeningTujuanDihapus();
+                    if (bantu->getRekeningTujuan()->getNorek() == norek)
+                    {
+                        bantu->rekeningTujuanDihapus();
+                        // cout << "ketemu transaksi transfer ke norek " << norek << endl; // testcase hapus norek
+                    }
                 }
                 
                 bantu = bantu->nextTransaksiSemua;
+                // cout << "geser bantu" << endl; // testcase hapus transaksi
             }
+            // cout << "selesai check semua transaksi" << endl; // testcase hapus transaksi
 
             // hapus rekening
             Rekening* hapus = daftarRekening[index];
+            queryRekening->histori.clear();
+            // cout << "berhasil inisialisasi hapus" << endl; // testcase hapus transaksi
             daftarRekening[index] = nullptr;
+            // cout << "berhasil mengosongkan daftarRekening[index]" << endl; // testcase hapus transaksi
             delete hapus;
+            // cout << "berhasil menghapus rekening" << endl; // testcase hapus transaksi
             cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
+            rehashing_deletion(&daftarRekening);
             return;
         } else {
             cout << "Rekening nasabah dengan nomor rekening " << norek << " sudah terhapus.\n";
@@ -508,7 +537,7 @@ void hapusRekening_Norek(unsigned int norek) {
         }
     } else {
         // tidak ada norek dicari di data norek yang pernah digenerate sistem
-        cout << "Tidak ada nasabah dengan nomor rekening " << norek << endl;
+        cout << "Tidak pernah ada nasabah dengan nomor rekening " << norek << endl;
     }
 }
 
@@ -555,8 +584,9 @@ void transfer(Rekening *pengirim, Rekening *penerima, double jml) {
         pengirim->tambahTransaksiAkun(trans);
         penerima->tambahTransaksiAkun(trans);
         cout << "Transfer berhasil dari " << pengirim->getNamaNasabah() << " ke " << penerima->getNamaNasabah() << "." << endl;
-        cout << "Saldo " << pengirim->getNamaNasabah() << ": " << pengirim->printSaldo() << endl;
-        cout << "Saldo " << penerima->getNamaNasabah() << ": " << penerima->printSaldo() << endl;
+        cout << "Sebesar Rp" << jumlah / 100 << "," << (jumlah % 100 < 10 ? "0" : "") << jumlah % 100 << endl; 
+        // cout << "Saldo " << pengirim->getNamaNasabah() << ": " << pengirim->printSaldo() << endl;
+        // cout << "Saldo " << penerima->getNamaNasabah() << ": " << penerima->printSaldo() << endl;
     } else {
         cout << "Transfer gagal. Saldo tidak mencukupi atau jumlah tidak valid." << endl;
     }
@@ -731,6 +761,67 @@ void testCase() {
 
 // ----------------------------------- User Input ------------------------------------------
 
+void userInput_lakukanTransaksi() {
+    unsigned int norek, inp_jenisTransaksi;
+    double jumlah;
+    jenisTransaksi enum_jenisTransaksi;
+
+    cout << "=== Lakukan Transaksi ===\n";
+    cout << "Masukkan nomor rekening: ";
+    cin >> norek;
+    cin.ignore(); // Buang newline dari buffer
+    Rekening* rekening = cariNasabah_Norek(norek);
+    
+    if (rekening == nullptr) {
+        cout << "Rekening tidak ditemukan.\n";
+        return;
+    }
+
+    cout << "Pilih jenis transaksi [1: Setor, 2: Tarik, 3. Transfer]: ";
+    cin >> inp_jenisTransaksi;
+    cin.ignore();
+    
+    switch (inp_jenisTransaksi)
+    {
+    case 1: enum_jenisTransaksi = SETOR; break;
+    case 2: enum_jenisTransaksi = TARIK; break;
+    case 3: enum_jenisTransaksi = TRANSFER; break;
+    default: cout << "Input tidak valid" << endl; return;
+    }
+
+    switch (enum_jenisTransaksi)
+    {
+    case SETOR:
+        cout << "Masukkan jumlah setor: ";
+        cin >> jumlah;
+        cin.ignore();
+        rekening->setor(jumlah);
+        break;
+
+    case TARIK:
+        cout << "Masukkan jumlah tarik: ";
+        cin >> jumlah;
+        cin.ignore();
+        rekening->tarik(jumlah);
+        break;
+    
+    case TRANSFER:
+        unsigned int norekTujuan;
+        cout << "Masukkan nomor rekening tujuan: ";
+        cin >> norekTujuan;
+        cin.ignore();
+        Rekening* rekeningTujuan = cariNasabah_Norek(norekTujuan);
+        
+        if (rekeningTujuan != nullptr) {
+            cout << "Masukkan jumlah transfer: ";
+            cin >> jumlah;
+            transfer(rekening, rekeningTujuan, jumlah);
+        } else {
+            cout << "Rekening tujuan tidak ditemukan.\n";
+        }
+    }
+}
+
 void userInput_buatRekening() {
     string pin, nama, nik, domisili, telp, ibu;
     int jenis;
@@ -750,7 +841,7 @@ void userInput_buatRekening() {
     getline(cin, telp);
     cout << "Masukkan Nama Ibu Kandung: ";
     getline(cin, ibu);
-    cout << "Pilih Jenis Tabungan [0:PEL, 1:PLAT, 2:GOLD, 3:DIAMOND]: ";
+    cout << "Pilih Jenis Tabungan [0: Pelajar, 1: Platinum, 2: Gold, 3: Diamond]: ";
     cin >> jenis;
     cin.ignore(); // Buang newline dari buffer
     cout << "Masukkan Saldo Awal: ";
@@ -847,7 +938,7 @@ int main() {
                 }
                 break;
             case 2:
-                cout << "[UNDER CONSTRUCTION]" << endl;
+                userInput_lakukanTransaksi();
                 break;
             case 3:
                 userInput_buatRekening();
