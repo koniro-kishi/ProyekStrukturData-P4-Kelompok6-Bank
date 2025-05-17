@@ -1,12 +1,3 @@
-/*
-    ini syafiqnya aja yang emang rada meticulous
-    saldo disini itu disimpen dalam satuan yen
-    nominal x 100
-    misal Rp1000,00 --> 1000.00 x 100 = 100000
-    gunanya untuk menghindari error operasi float dan boolean
-    yaitu 0.0 bisa jadi 0.000000001
-*/
-
 #include <iostream>
 #include <string>
 #include <ctime>
@@ -684,17 +675,66 @@ void transfer(Rekening *pengirim, Rekening *penerima, double jml) {
     }
 }
 
-void tampilkanHistori(unsigned int norek) {
-    cout << "Histori Transaksi untuk Rekening " << norek << ":\n";
-    Rekening* Rekening = cariNasabah_Norek(norek);
-    for (auto& t : Rekening->histori) {
-        t->printTransaksi();
-        cout << "---------------------\n";
+void tampilkanTransaksi_Semua(){
+    cout << "\n=== Menampilkan Semua Riwayat Transaksi ===\n";
+    if (HeadTransaksiSemua != nullptr)
+    {
+        Transaksi* print = HeadTransaksiSemua;
+        while (print != nullptr)
+        {
+            print->printTransaksi();
+            cout << "---------------------\n";
+            print = print->nextTransaksiSemua;
+        }
+    } else {
+        cout << "Tidak ada riwayat transaksi\n";
+    }
+}
+
+void tampilkanTransaksi_Rekening(unsigned int norek) {
+    Rekening* rekening = cariNasabah_Norek(norek);
+    if (rekening == nullptr) {
+        cout << "\nTidak ditemukan rekening dengan nomor rekening " + to_string(norek) + ".\n";
+        return;
+    }
+
+    if (rekening->histori.size() != 0)
+    {
+        cout << "\nHistori Transaksi untuk Rekening " << norek << ":\n";
+        for (auto& t : rekening->histori) {
+            t->printTransaksi();
+            cout << "---------------------\n";
+        }
+    } else {
+        cout << "\nRekening dengan nomor rekening " + to_string(norek) + " tidak memiliki riwayat transaksi.\n";
+    }
+}
+
+void tampilkanTransaksi_Rekening_Transfer(unsigned int norek) {
+    Rekening* rekening = cariNasabah_Norek(norek);
+    if (rekening == nullptr) {
+        cout << "\nTidak ditemukan rekening dengan nomor rekening " + to_string(norek) + ".\n";
+        return;
+    }
+
+    cout << "\nRiwayat Transfer untuk Rekening " << norek << ":\n";
+
+    bool adaTransfer = false;
+    for (auto& t : rekening->histori) {
+        if (t->getJenisTransaksi() == TRANSFER) {
+            t->printTransaksi();
+            cout << "---------------------\n";
+            adaTransfer = true;
+        }
+    }
+
+    if (!adaTransfer) {
+        cout << "\nRekening dengan nomor rekening " + to_string(norek) + " tidak memiliki riwayat transfer.\n";
     }
 }
 
 void undoTransaksi(){
-    cout << "\n==== Membatalkan transaksi terakhir ====\n";
+    cout << "\n=== Membatalkan transaksi terakhir ===\n";
     cout << "Transaksi terakhir adalah:\n";
     HeadTransaksiSemua->printTransaksi();
     bool success = true;
@@ -838,7 +878,7 @@ void testCase() {
     // ---------------------------------------------------------------------------
 
     cout << "Menampilkan histori transaksi dari Najma 1754569918\n";
-    tampilkanHistori(1754569918);
+    tampilkanTransaksi_Rekening(1754569918);
 
     // ---------------------------------------------------------------------------
     cout << "\n--- TEST undo transaksi ---\n";
@@ -1067,6 +1107,7 @@ void decryptImport(){
                 } else {
                     unsigned int norekTujuan = stoul(tokensT[4], 0, 10);
                     instTransaksi = new Transfer(norekAsal, jumlah, norekTujuan, tanggal);
+                    cariNasabah_Norek(norekTujuan)->tambahTransaksiAkun(instTransaksi, tanggal);    
                 } 
 
                 cariNasabah_Norek(norekAsal)->tambahTransaksiAkun(instTransaksi, tanggal);
@@ -1152,6 +1193,10 @@ void userInput_lakukanTransaksi_transfer(){
         return;
     }
 
+    cout << "Masukkan jumlah transfer: ";
+    cin >> jumlah;
+    cin.ignore();
+
     transfer(pengirim, penerima, jumlah);
 }
 
@@ -1234,13 +1279,14 @@ int main() {
 
     while (true) {
         cout << "\n=== Menu Utama ===\n";
-        cout << "1. Tampilkan Nasabah\n";
-        cout << "2. Lakukan Transaksi\n";
-        cout << "3. Batalkan Trasaksi Terakhir\n";
-        cout << "4. Buat Rekening\n";
-        cout << "5. Hapus Rekening\n";
-        cout << "6. Simpan perubahan\n";
-        cout << "7. Batalkan semua perubahan\n";
+        cout << "1. Daftar Nasabah\n";
+        cout << "2. Buat Rekening\n";
+        cout << "3. Hapus Rekening\n";
+        cout << "4. Riwayat Transaksi\n";
+        cout << "5. Lakukan Transaksi\n";
+        cout << "6. Batalkan Trasaksi Terakhir\n";
+        cout << "7. Simpan Perubahan\n";
+        cout << "8. Batalkan Semua Perubahan\n";
         cout << "0. Keluar\n";
         cout << "Pilihan Anda: ";
         cin >> pilihan;
@@ -1257,12 +1303,11 @@ int main() {
 
         switch (pilihan) {
             case 1:
-                cout << "\n=== Menu Tampilkan Nasabah ===\n";
-                cout << "1. Tampilkan semua nasabah\n";
+                cout << "\n=== Menu Daftar Nasabah ===\n";
+                cout << "1. Daftar semua nasabah\n";
                 cout << "2. Cari nasabah berdasarkan nama\n";
-                cout << "3. Cari nasabah berdasarkan norek\n";
+                cout << "3. Cari nasabah berdasarkan nomor rekening\n";
                 cout << "9. Kembali\n";
-                cout << "0. Keluar\n";
                 cout << "Pilihan Anda: ";
                 cin >> pilihan;
                 cin.ignore();
@@ -1274,49 +1319,102 @@ int main() {
                     case 2:
                         cout << "Masukkan nama nasabah yang dicari: ";
                         getline(cin, input_string);
-                        if (cariNasabah_Nama(input_string) != nullptr) {
-                            cariNasabah_Nama(input_string)->printInfo();
-                        } else {
-                            cout << "Nasabah tidak ditemukan.\n";
-                        }
+                        cout << endl;
+                        cariNasabah_Nama(input_string)->printInfo();
                         break;
                     case 3:
                         cout << "Masukkan nomor rekening yang dicari: ";
                         cin >> input_unsignedInt;
-                        if (cariNasabah_Norek(input_unsignedInt) != nullptr) {
-                            cariNasabah_Norek(input_unsignedInt)->printInfo();
-                        } else {
-                            cout << "Nasabah tidak ditemukan.\n";
-                        }
+                        cout << endl;
+                        cariNasabah_Norek(input_unsignedInt)->printInfo();
                         break;
                     case 9:
                         continue; // Balik ke menu utama
-                    case 0:
-                        cout << "Terima kasih!\n";
-                        return 0; // Keluar dari program
                     default:
                         cout << "Pilihan tidak valid.\n";
                         break;
                 }
                 break;
             case 2:
-                userInput_lakukanTransaksi();
-                break;
-            case 3:
-                undoTransaksi();
-                break;
-            case 4:
                 userInput_buatRekening();
                 break;
-            case 5:
+            case 3:
                 userInput_hapusRekening_Norek();
                 break;
+            case 4:
+                cout << "\n=== Menu Riwayat Transaksi ===\n";
+                cout << "1. Riwayat transaksi semua nasabah\n";
+                cout << "2. Riwayat transaksi nasabah dengan nomor rekening tertentu\n";
+                cout << "3. Riwayat transfer nasabah dengan nomor rekening tertentu\n";
+                cout << "9. Kembali\n";
+                cout << "Pilihan Anda: ";
+                cin >> pilihan;
+                cin.ignore();
+
+                switch (pilihan) {
+                    case 1:
+                        tampilkanTransaksi_Semua();
+                        break;
+                    case 2:
+                        cout << "Masukkan nomor rekening nasabah yang dicari: ";
+                        cin >> input_unsignedInt;
+                        cin.ignore();
+                        tampilkanTransaksi_Rekening(input_unsignedInt);
+                        break;
+                    case 3:
+                        cout << "Masukkan nomor rekening nasabah yang dicari: ";
+                        cin >> input_unsignedInt;
+                        cin.ignore();
+                        tampilkanTransaksi_Rekening_Transfer(input_unsignedInt);
+                        break;
+                    case 9:
+                        continue; // Balik ke menu utama
+                    default:
+                        cout << "Pilihan tidak valid.\n";
+                        break;
+                }
+                break;
+            case 5:
+                userInput_lakukanTransaksi();
+                break;
             case 6:
+                undoTransaksi();
+                break;
+            case 7:
+                cout << endl;
                 exportEncrypt();
                 break;
+            case 8:
+                cout << endl;
+                decryptImport();
+                break;
             case 0:
-                cout << "Terima kasih!\n";
-                return 0; // Keluar dari program
+                cout << "Simpan perubahan?\n";
+                cout << "1. Ya\n";
+                cout << "2. Tidak\n";
+                cout << "9. Kembali\n";
+                cout << "Pilihan Anda: ";
+                cin >> pilihan;
+                cin.ignore();
+
+                switch (pilihan) {
+                    case 1:
+                        cout << endl;
+                        exportEncrypt();
+                        cout << "\nTerima kasih!\n";
+                        return 0; // Keluar dari program
+                    case 2:
+                        cout << "Semua perubahan tidak akan tersimpan";
+                        cout << "\nTerima kasih!\n";
+                        return 0; // Keluar dari program
+                    case 9:
+                        continue; // Balik ke menu utama
+                        break;
+                    default:
+                        cout << "Pilihan tidak valid.\n";
+                        break;
+                }
+                break;
             default:
                 cout << "Pilihan tidak valid.\n";
                 break;
