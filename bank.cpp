@@ -491,6 +491,33 @@ void tampilkanSemuaNasabah(){
     }
 }
 
+void sortRekeningBySaldo(bool ascending = true) {
+    vector<Rekening*> rekeningAktif;
+    for (Rekening* r : daftarRekening) {
+        if (r != nullptr) {
+            rekeningAktif.push_back(r);
+        }
+    }
+
+
+    if (ascending) {
+        sort(rekeningAktif.begin(), rekeningAktif.end(), [](Rekening* a, Rekening* b) {
+            return a->getSaldo() < b->getSaldo();
+        });
+    } else {
+        sort(rekeningAktif.begin(), rekeningAktif.end(), [](Rekening* a, Rekening* b) {
+            return a->getSaldo() > b->getSaldo();
+        });
+    }
+
+
+    cout << "\n==== Daftar Nasabah Diurutkan Berdasarkan Saldo ====\n";
+    for (Rekening* r : rekeningAktif) {
+        r->printInfo();
+        cout << "---------------------\n";
+    }
+}
+
 Rekening* cariNasabah_Nama(const string& nama) {
     string query = nama;
     kapitalisasi(&query);
@@ -694,7 +721,6 @@ void tampilkanTransaksi_Semua(){
 void tampilkanTransaksi_Rekening(unsigned int norek) {
     Rekening* rekening = cariNasabah_Norek(norek);
     if (rekening == nullptr) {
-        cout << "\nTidak ditemukan rekening dengan nomor rekening " + to_string(norek) + ".\n";
         return;
     }
 
@@ -713,7 +739,6 @@ void tampilkanTransaksi_Rekening(unsigned int norek) {
 void tampilkanTransaksi_Rekening_Transfer(unsigned int norek) {
     Rekening* rekening = cariNasabah_Norek(norek);
     if (rekening == nullptr) {
-        cout << "\nTidak ditemukan rekening dengan nomor rekening " + to_string(norek) + ".\n";
         return;
     }
 
@@ -1314,7 +1339,26 @@ int main() {
 
                 switch (pilihan) {
                     case 1:
-                        tampilkanSemuaNasabah();
+                        cout << "\n=== Sorting Berdasarkan Saldo ===\n";
+                        cout << "1. Urutkan dari saldo terkecil ke terbesar\n";
+                        cout << "2. Urutkan dari saldo terbesar ke terkecil\n";
+                        cout << "Pilihan Anda: ";
+                        cin >> pilihan;
+                        cin.ignore();
+
+                        switch (pilihan) {
+                            case 1:
+                                sortRekeningBySaldo(true);
+                                break;
+                            case 2:
+                                sortRekeningBySaldo(false);
+                                break;
+                            case 9:
+                                continue; // Balik ke menu utama
+                            default:
+                                cout << "Pilihan tidak valid.\n";
+                                break;
+                        }
                         break;
                     case 2:
                         cout << "Masukkan nama nasabah yang dicari: ";
@@ -1325,7 +1369,7 @@ int main() {
                     case 3:
                         cout << "Masukkan nomor rekening yang dicari: ";
                         cin >> input_unsignedInt;
-                        cout << endl;
+                        cin.ignore();
                         cariNasabah_Norek(input_unsignedInt)->printInfo();
                         break;
                     case 9:
@@ -1389,7 +1433,7 @@ int main() {
                 decryptImport();
                 break;
             case 0:
-                cout << "Simpan perubahan?\n";
+                cout << "\nSimpan perubahan?\n";
                 cout << "1. Ya\n";
                 cout << "2. Tidak\n";
                 cout << "9. Kembali\n";
