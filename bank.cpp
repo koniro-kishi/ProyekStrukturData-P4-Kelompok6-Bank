@@ -66,31 +66,26 @@ class Transaksi {
     
     public:
         bool disimpan;
-        Transaksi* nextTransaksiSemua;
+        Transaksi* beforeThis;  //next
+        Transaksi* afterThis;   //prev
 
-        // constructor default
-        Transaksi(unsigned int asal, int jml, jenisTransaksi jns)
-            {
-            norekAsal = asal;
-            jumlah = jml;
-            enum_jenisTransaksi = jns;
-            tanggal = time(nullptr);
-            rekeningAsal = cariNasabah_Norek(norekAsal);
-            disimpan = false;
-            
+        void rearrangePointer(){
             if (HeadTransaksiSemua == nullptr)
             {
                 HeadTransaksiSemua = this;
-                nextTransaksiSemua = nullptr;
+                beforeThis = nullptr;
+                afterThis = nullptr;
             } else {
-                nextTransaksiSemua = HeadTransaksiSemua;
+                HeadTransaksiSemua->afterThis = this;
+                beforeThis = HeadTransaksiSemua;
                 HeadTransaksiSemua = this;
+                afterThis = nullptr;
             }
         }
 
-        // constructor enkripsi
-        Transaksi(unsigned int asal, int jml, jenisTransaksi jns, time_t tgl)
-            {
+        // constructor 
+        Transaksi(unsigned int asal, int jml, jenisTransaksi jns, time_t tgl = time(nullptr))
+        {
             norekAsal = asal;
             jumlah = jml;
             enum_jenisTransaksi = jns;
@@ -98,14 +93,7 @@ class Transaksi {
             rekeningAsal = cariNasabah_Norek(norekAsal);
             disimpan = false;
 
-            if (HeadTransaksiSemua == nullptr)
-            {
-                HeadTransaksiSemua = this;
-                nextTransaksiSemua = nullptr;
-            } else {
-                nextTransaksiSemua = HeadTransaksiSemua;
-                HeadTransaksiSemua = this;
-            }
+            rearrangePointer();
         }
     
         int getjumlah(){ return jumlah; }
@@ -343,21 +331,9 @@ class Transfer : public Transaksi {
         int biayaAdmin;
     
     public:
-        // default constructor
-        Transfer(unsigned int asal, int jml, unsigned int tujuan)
-            : Transaksi(asal, jml, TRANSFER){
-                norekTujuan = tujuan;
-                rekeningTujuan = cariNasabah_Norek(tujuan);
-                switch (rekeningAsal->getJenisTab()) {
-                    case PELAJAR:   biayaAdmin = 0;         break;
-                    case PLATINUM:  biayaAdmin = 500000;    break;
-                    case GOLD:      biayaAdmin = 250000;    break;
-                    case DIAMOND:   biayaAdmin = 0;         break;
-                }
-        }
         
-        // constructor enkripsi
-        Transfer(unsigned int asal, int jml, unsigned int tujuan, time_t tgl)
+        // constructor
+        Transfer(unsigned int asal, int jml, unsigned int tujuan, time_t tgl = time(nullptr))
             : Transaksi(asal, jml, TRANSFER, tgl){
                 norekTujuan = tujuan;
                 rekeningTujuan = cariNasabah_Norek(tujuan);
@@ -619,7 +595,7 @@ void hapusRekening_Norek(unsigned int norek) {
                     }
                 }
                 
-                bantu = bantu->nextTransaksiSemua;
+                bantu = bantu->beforeThis;
                 // cout << "geser bantu" << endl; // testcase hapus transaksi
             }
             // cout << "selesai check semua transaksi" << endl; // testcase hapus transaksi
@@ -721,7 +697,7 @@ void tampilkanTransaksi_Semua(){
         {
             print->printTransaksi();
             cout << "---------------------\n";
-            print = print->nextTransaksiSemua;
+            print = print->beforeThis;
         }
     } else {
         cout << "Tidak ada riwayat transaksi\n";
@@ -772,7 +748,6 @@ void undoTransaksi(){
     cout << "\n=== Membatalkan transaksi terakhir ===\n";
     cout << "Transaksi terakhir adalah:\n";
     HeadTransaksiSemua->printTransaksi();
-    bool success = true;
 
     // balikin uangnya
     switch (HeadTransaksiSemua->getJenisTransaksi())
@@ -795,8 +770,8 @@ void undoTransaksi(){
             HeadTransaksiSemua->getRekeningTujuan()
             ->balikinTerimaTransfer(HeadTransaksiSemua->getjumlah());
         } else {
-            success = false;
             cout << "Salah satu rekening sudah dihapus sehingga transaksi tidak bisa di-undo\n";
+            return;
         }
         break;
 
@@ -804,14 +779,11 @@ void undoTransaksi(){
         break;
     }
 
-    // geser head
-    if (success)
-    {
-        Transaksi* hapus = HeadTransaksiSemua;
-        HeadTransaksiSemua = HeadTransaksiSemua->nextTransaksiSemua;
-        delete hapus;
-        cout << "Transaksi terakhir berhasil dibatalkan\n";
-    }
+    Transaksi* hapus = HeadTransaksiSemua;
+    HeadTransaksiSemua = HeadTransaksiSemua->beforeThis;
+    HeadTransaksiSemua->afterThis = nullptr;
+    delete hapus;
+    cout << "Transaksi terakhir berhasil dibatalkan\n";
 }
 
 void testCase() {
@@ -1042,26 +1014,19 @@ void exportEncrypt() {
             // dibagi 2, simpan tail dan simpan semua sebelum tail
             // simpan tail
             Transaksi* tailSimpan = HeadTransaksiSemua;
-            while (tailSimpan->nextTransaksiSemua != nullptr)
+            while (tailSimpan->beforeThis != nullptr)
             {
-                tailSimpan = tailSimpan->nextTransaksiSemua;
+                tailSimpan = tailSimpan->beforeThis;
             }
-            transaksi << tailSimpan->getSemua() << endl;
-            tailSimpan->disimpan = true;
 
-            // export transaksi dari tail ke head
-            while (HeadTransaksiSemua->disimpan != true)
+            // dari tail maju ke depan
+            // karena nanti perlu nyimpen prev
+            while (tailSimpan->afterThis != nullptr)
             {
-                tailSimpan = HeadTransaksiSemua;
-                
-                while (tailSimpan->nextTransaksiSemua->disimpan != true){
-                    tailSimpan = tailSimpan->nextTransaksiSemua;
-                }
-
                 transaksi << tailSimpan->getSemua() << endl;
-                tailSimpan->disimpan = true;
+                tailSimpan = tailSimpan->afterThis;
             }
-
+            
             // mengenkripsi tiap baris (satu transaksi) ke file baru
             enc.encrypt("transaksi");
             transaksi.close();
@@ -1446,7 +1411,23 @@ int main() {
                 break;
             case 8:
                 cout << endl;
+                slotTerisi = 0;
+                daftarRekening.clear();
+                daftarRekening.resize(11, nullptr); // Reinitialize to original size
+                norekTerpakai.clear();
+                
+                Transaksi* bantu;
+                while (HeadTransaksiSemua != nullptr)
+                {
+                    bantu = HeadTransaksiSemua;
+                    HeadTransaksiSemua = HeadTransaksiSemua->beforeThis;
+                    delete bantu;
+                }
+                
                 decryptImport();
+                cout << "Melakukan pembersihan file tidak diperlukan...\n";
+                remove("rekening_decrypt.txt");
+                remove("transaksi_decrypt.txt");
                 break;
             case 0:
                 cout << "\nSimpan perubahan?\n";
