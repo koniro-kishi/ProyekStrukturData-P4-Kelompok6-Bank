@@ -22,6 +22,8 @@ class Transaksi;
 class Rekening;
 Rekening* cariNasabah_Norek(unsigned int norek);
 unsigned int UangInputKeSistem(double a){ return a * 100; };
+bool isPrime(int num);
+int findNextPrime(int num);
 
 // -----------------------------------------------------------------------------------------
 
@@ -29,10 +31,10 @@ unsigned int UangInputKeSistem(double a){ return a * 100; };
 // -------------------------------- GLOBAL VARIABLE ----------------------------------------
 // Variable yang bisa diakses di seluruh letak program
 
-double threshold = 0.75;
+double threshold = 0.5;
 int slotTerisi = 0;
 vector<unsigned int> norekTerpakai;
-vector<Rekening*> daftarRekening(4, nullptr);
+vector<Rekening*> daftarRekening(11, nullptr);
 Transaksi* HeadTransaksiSemua = nullptr;
 
 // ------------------------------------------------------------------------------------------
@@ -205,7 +207,6 @@ public:
         {
             iProbNorek++;
             norek = (norek + iProbNorek * iProbNorek);
-            
         }
         norekTerpakai.push_back(norek);
         sort(norekTerpakai.begin(), norekTerpakai.end()); // binarySearchRecursive hanya bisa bekerja pada data terurut
@@ -392,34 +393,39 @@ class Transfer : public Transaksi {
 
 // ---------------------------- INSERTION & REHASHING --------------------------------------
 
+int doubleHashing(vector<Rekening*>* targetMap, unsigned int key){
+    int m = targetMap->size();
+    int h1 = key % m;
+    int index = h1;
+
+    if ((*targetMap)[index] != nullptr)
+    {
+        int i = 1;
+        int h2 = 1 + (key % (m-1));
+        while ((*targetMap)[index] != nullptr)
+        {
+            index = (h1 + i * h2) % m;
+            i++;
+        }
+    }
+    
+    return index;
+}
+
 // Fungsi insertion ke hashmap yang tidak perlu cek threshold, dipanggil saat rehashing
 void insertToHashMapWithoutRehashing(vector<Rekening*>* targetMap, Rekening* input) {
-
-    // hash fucntion dasar
-    int iProbeInsert = 0;
-    unsigned int norek = input->getNorek();
-    double hashVal = static_cast<double>(norek) * 0.61;
-    double frac = hashVal - floor(hashVal);
-    int index = floor(frac * (targetMap->size()));
-
-    // probing
-    while ((*targetMap)[index] != nullptr) {
-        ++iProbeInsert;
-        index = (index + iProbeInsert * iProbeInsert) % (targetMap->size());
-    }
-
-    // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
-    (*targetMap)[index] = input;
+    (*targetMap)[doubleHashing(targetMap, input->getNorek())] = input;
     slotTerisi++;
 }
 
 // Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
 void rehashing_insertion(vector<Rekening*>* targetMap) {
-    float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
+    int m = targetMap->size();
+    float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(m);
 
     if (loadFactor >= threshold) {
         // Membuat hash map baru
-        vector<Rekening*> hashMapBaru(targetMap->size()*2, nullptr);
+        vector<Rekening*> hashMapBaru(findNextPrime(m*2), nullptr);
 
         // Memindahkan tiap pointer Rekening ke hash map yang baru
         for (int i = 0; i < targetMap->size(); i++) {
@@ -440,21 +446,8 @@ void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
     // memastikan load factor tidak melewati threshold
     rehashing_insertion(targetMap);
 
-    // hash fucntion dasar
-    int iProbeInsert = 0;
-    unsigned int norek = input->getNorek();
-    double hashVal = static_cast<double>(norek) * 0.61;
-    double frac = hashVal - floor(hashVal);
-    int index = floor(frac * (targetMap->size()));
-
-    // probing
-    while ((*targetMap)[index] != nullptr) {
-        ++iProbeInsert;
-        index = (index + iProbeInsert * iProbeInsert) % (targetMap->size());
-    }
-
     // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
-    (*targetMap)[index] = input;
+    (*targetMap)[doubleHashing(targetMap, input->getNorek())] = input;
     slotTerisi++;
 }
 
@@ -537,25 +530,27 @@ Rekening* cariNasabah_Nama(const string& nama) {
 }
 
 Rekening* cariNasabah_Norek(unsigned int norek) {
-    
     if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
     {
-        // hash fucntion dasar
-        int iProbeSearch = 0;
-        double hashVal = static_cast<double>(norek) * 0.61;
-        double frac = hashVal - floor(hashVal);
-        int index = floor(frac * (daftarRekening.size()));
+        int m = daftarRekening.size();
+        int h1 = norek % m;
+        int index = h1;
 
-        bool found = false;
+        if (daftarRekening[index] != nullptr)
+        {
+            int i = 1;
+            int h2 = 1 + (norek % (m-1));
+            bool found = false;
 
-        // probing
-        while (daftarRekening[index] != nullptr && !found) {
-            if (daftarRekening[index]->getNorek() == norek)
-            {
-                found = true;
-            } else {
-                ++iProbeSearch;
-                index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
+            // probing
+            while (daftarRekening[index] != nullptr && !found) {
+                if (daftarRekening[index]->getNorek() == norek)
+                {
+                    found = true;
+                } else {
+                    index = (h1 + i * h2) % m;
+                    i++;
+                }
             }
         }
 
@@ -565,7 +560,6 @@ Rekening* cariNasabah_Norek(unsigned int norek) {
         }
         
         return daftarRekening[index];
-
     } else {
         // tidak ada norek dicari di data norek yang pernah digenerate sistem
         cout << "Tidak ada nasabah dengan nomor rekening " << norek << endl;
@@ -685,6 +679,22 @@ int binarySearchRecursive(vector<unsigned int>& arr, int target, int left, int r
     return binarySearchRecursive(arr, target, mid + 1, right);
     }
 }    
+
+bool isPrime(int num){
+    bool prime = true;
+    for (int i = 2; i*i <= num; i++)
+    {
+        if (num % i == 0) prime = false;
+    }
+    return prime;
+}
+
+int findNextPrime(int num){
+    while (true) {
+        num++;
+        if (isPrime(num)) return num;
+    }
+}
 
 void transfer(Rekening *pengirim, Rekening *penerima, double jml) {
     unsigned int jumlah = UangInputKeSistem(jml);
@@ -1271,9 +1281,15 @@ void userInput_buatRekening() {
     cin >> saldoAwal;
     cin.ignore(); // Buang newline dari buffer
 
-    Rekening* baru = new Rekening(pin, nama, nik, domisili, telp, ibu, static_cast<jenisTabungan>(jenis), saldoAwal);
-    insertToHashMap(&daftarRekening, baru);
-    cout << "Rekening berhasil dibuat dengan norek: " << baru->getNorek() << endl;
+    if (saldoAwal >= 0.0)
+    {
+        Rekening* baru = new Rekening(pin, nama, nik, domisili, telp, ibu, static_cast<jenisTabungan>(jenis), saldoAwal);
+        insertToHashMap(&daftarRekening, baru);
+        cout << "Rekening berhasil dibuat dengan norek: " << baru->getNorek() << endl;
+    } else {
+        cout << "Saldo awal tidak boleh kurang dari 0" << endl;
+        cout << "Gagal membuat rekening baru" << endl;
+    }
 }
 
 void userInput_hapusRekening_Norek() {
@@ -1448,7 +1464,7 @@ int main() {
                         cout << "\nTerima kasih!\n";
                         return 0; // Keluar dari program
                     case 2:
-                        cout << "Semua perubahan tidak akan tersimpan";
+                        cout << "\nPerubahan tidak akan tersimpan";
                         cout << "\nTerima kasih!\n";
                         return 0; // Keluar dari program
                     case 9:
