@@ -307,14 +307,7 @@ public:
         saldo -= jumlah;
     }
 
-    // default
-    void tambahTransaksiAkun(Transaksi* t) {
-        histori.push_back(t);
-        time(&waktuBerubah);
-    }
-
-    // for import purpose
-    void tambahTransaksiAkun(Transaksi* t, time_t w) {
+    void tambahTransaksiAkun(Transaksi* t, time_t w = time(nullptr)) {
         histori.push_back(t);
         waktuBerubah = w;
     }
