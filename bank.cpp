@@ -159,8 +159,6 @@ public:
     Rekening(string nr, string s, string p, string nn, string nik, string d, string nt, string ni, string j, string wd, string wb) {
         // menyalin setiap data input
         norek = stoul(nr, 0, 10);
-        norekTerpakai.push_back(norek);
-        sort(norekTerpakai.begin(), norekTerpakai.end());
         pin = p;
         namaNasabah = nn;
         NIK = nik;
@@ -893,6 +891,7 @@ public:
 };
 encdec enc;
 char c;
+string line;
 
 // Definition of encryption function
 void encdec::encrypt(string file)
@@ -946,9 +945,32 @@ void encdec::decrypt(string file)
     fout.close();
 }
 
-void exportEncrypt() {
-    cout << "Membuat tempat penyimpanan data rekening nasabah dan riwayat transaksi...\n";
+bool exportEncrypt_norek(){
+    // export dan enkripsi data rekening dulu, kalau aman baru data transaksi
+    ofstream norek("norek_data.txt");
 
+    if (norek.is_open()) {
+        // cout << "data is open" <<endl;
+
+        // menulis setiap akun rekening ke dalam rekening_data.txt, belum terenkripsi
+        for (auto& r : norekTerpakai) {
+            norek << r << endl;
+        }
+
+        // mengenkripsi tiap baris (akun rekening) ke file baru
+        enc.encrypt("norek");
+        norek.close();
+        remove("norek_data.txt");
+        cout << "Data nomor rekening berhasil diekspor dan dienkripsi ke norek_encrypt.txt" << endl;
+        
+        return true;
+    } else {
+        cout << "Gagal membuka norek_data.txt untuk menulis." << endl;
+        return false;
+    }
+}
+
+bool exportEncrypt_rekening(){
     // export dan enkripsi data rekening dulu, kalau aman baru data transaksi
     ofstream rekening("rekening_data.txt");
 
@@ -970,8 +992,15 @@ void exportEncrypt() {
         remove("rekening_data.txt");
         cout << "Data rekening berhasil diekspor dan dienkripsi ke rekening_encrypt.txt" << endl;
         
-        
-        ofstream transaksi("transaksi_data.txt");
+        return true;
+    } else {
+        cout << "Gagal membuka rekening_data.txt untuk menulis." << endl;
+        return false;
+    }
+}
+
+bool exportEncrypt_transaksi(){
+    ofstream transaksi("transaksi_data.txt");
 
         if (transaksi.is_open()) {
             // cout << "data is open" <<endl;
@@ -987,7 +1016,7 @@ void exportEncrypt() {
 
             // dari tail maju ke depan
             // karena nanti perlu nyimpen prev
-            while (tailSimpan->afterThis != nullptr)
+            while (tailSimpan != nullptr)
             {
                 transaksi << tailSimpan->getSemua() << endl;
                 tailSimpan = tailSimpan->afterThis;
@@ -998,19 +1027,51 @@ void exportEncrypt() {
             transaksi.close();
             remove("transaksi_data.txt");
             cout << "Data transaksi berhasil diekspor dan dienkripsi ke transaksi_encrypt.txt" << endl;
-            cout << "Semua perubahan berhasil disimpan!" << endl;
+
+            return true;
         } else {
             cout << "Gagal membuka transaksi_data.txt untuk menulis." << endl;
+            return false;
         }
-    } else {
-        cout << "Gagal membuka rekening_data.txt untuk menulis." << endl;
+}
+
+void exportEncrypt_all() {
+    cout << "Membuat tempat penyimpanan data...\n";
+    if(exportEncrypt_norek())
+    {
+        if (exportEncrypt_rekening())
+        {
+            if (exportEncrypt_transaksi())
+            {
+                cout << "Semua data berhasil disimpan!" << endl;
+            }
+        }
     }
 }
 
-void decryptImport(){
-    cout << "Membuka data rekening nasabah dan riwayat transaksi...\n";
-    string line;
+bool decryptImport_norek(){
+    enc.decrypt("norek");
+    ifstream norek("norek_decrypt.txt");
 
+    if (norek.is_open())
+    {
+        while (getline(norek, line))
+        {
+            norekTerpakai.push_back(stoul(line, 0, 10));
+        }
+        norek.close();
+        remove("norek_decrypt.txt");
+        cout << "Data rekening nasabah berhasil didekripsi dan diimport" << endl;
+
+        return true;
+    } else
+    {
+        cout << "Gagal membuka file norek_decrypt.txt untuk membaca." << endl;
+        return false;
+    }
+}
+
+bool decryptImport_rekening(){
     enc.decrypt("rekening");
     ifstream rekening("rekening_decrypt.txt");
     if (rekening.is_open())
@@ -1034,60 +1095,83 @@ void decryptImport(){
 
             insertToHashMap(&daftarRekening, instRekening);
         }
+        rekening.close();
+        remove("rekening_decrypt.txt");
         cout << "Data rekening nasabah berhasil didekripsi dan diimport" << endl;
-
-
-        // decrypt dan import transaksi
-        enc.decrypt("transaksi");
-        ifstream transaksi("transaksi_decrypt.txt");
-        if (transaksi.is_open())
-        {
-            while (getline (transaksi, line)) {
-
-                vector <string> tokensT;
-                stringstream check1T(line);
-                string intermediateT;
-                
-                // Tokenizing w.r.t. line '|'
-                while(getline(check1T, intermediateT, '|'))
-                {
-                    tokensT.push_back(intermediateT);
-                }
-                
-                unsigned int norekAsal = stoul(tokensT[0], 0, 10);
-                int jumlah = stoi(tokensT[1]);
-                time_t tanggal = static_cast<time_t>(stoll(tokensT[2]));
-                
-                jenisTransaksi enum_jenisTransaksi;
-                switch (stoi(tokensT[3]))
-                {
-                case 0: enum_jenisTransaksi = SETOR; break;
-                case 1: enum_jenisTransaksi = TARIK; break;
-                case 2: enum_jenisTransaksi = TRANSFER; break;
-                }
-
-                Transaksi* instTransaksi;
-                if (enum_jenisTransaksi != TRANSFER)
-                {
-                    instTransaksi = new Transaksi(norekAsal, jumlah, enum_jenisTransaksi, tanggal);
-                } else {
-                    unsigned int norekTujuan = stoul(tokensT[4], 0, 10);
-                    instTransaksi = new Transfer(norekAsal, jumlah, norekTujuan, tanggal);
-                    cariNasabah_Norek(norekTujuan)->tambahTransaksiAkun(instTransaksi, tanggal);    
-                } 
-
-                cariNasabah_Norek(norekAsal)->tambahTransaksiAkun(instTransaksi, tanggal);
-            }
-
-            cout << "Data riwayat transaksi berhasil didekripsi dan diimport" << endl;
-            cout << "Semua data berhasil diimport!" << endl;
-        } else
-        {
-            cout << "Gagal membuka file transaksi_decrypt.txt untuk membaca." << endl;
-        }
+        
+        return true;
     } else
     {
         cout << "Gagal membuka file rekening_decrypt.txt untuk membaca." << endl;
+        return false;
+    }
+}
+
+bool decryptImport_transaksi(){
+    enc.decrypt("transaksi");
+    ifstream transaksi("transaksi_decrypt.txt");
+    if (transaksi.is_open())
+    {
+        while (getline (transaksi, line)) {
+
+            vector <string> tokensT;
+            stringstream check1T(line);
+            string intermediateT;
+            
+            // Tokenizing w.r.t. line '|'
+            while(getline(check1T, intermediateT, '|'))
+            {
+                tokensT.push_back(intermediateT);
+            }
+            
+            unsigned int norekAsal = stoul(tokensT[0], 0, 10);
+            int jumlah = stoi(tokensT[1]);
+            time_t tanggal = static_cast<time_t>(stoll(tokensT[2]));
+            
+            jenisTransaksi enum_jenisTransaksi;
+            switch (stoi(tokensT[3]))
+            {
+            case 0: enum_jenisTransaksi = SETOR; break;
+            case 1: enum_jenisTransaksi = TARIK; break;
+            case 2: enum_jenisTransaksi = TRANSFER; break;
+            }
+
+            Transaksi* instTransaksi;
+            if (enum_jenisTransaksi != TRANSFER)
+            {
+                instTransaksi = new Transaksi(norekAsal, jumlah, enum_jenisTransaksi, tanggal);
+            } else {
+                unsigned int norekTujuan = stoul(tokensT[4], 0, 10);
+                instTransaksi = new Transfer(norekAsal, jumlah, norekTujuan, tanggal);
+                cariNasabah_Norek(norekTujuan)->tambahTransaksiAkun(instTransaksi, tanggal);    
+            } 
+
+            cariNasabah_Norek(norekAsal)->tambahTransaksiAkun(instTransaksi, tanggal);
+        }
+        transaksi.close();
+        remove("transaksi_decrypt.txt");
+        cout << "Data riwayat transaksi berhasil didekripsi dan diimport" << endl;
+
+        return true;
+    } else
+    {
+        cout << "Gagal membuka file transaksi_decrypt.txt untuk membaca." << endl;
+        return false;
+    }
+}
+
+void decryptImport_all(){
+    cout << "Membuka data rekening nasabah dan riwayat transaksi...\n";
+    
+    if (decryptImport_norek())
+    {
+        if (decryptImport_rekening())
+        {
+            if (decryptImport_transaksi())
+            {
+                cout << "Semua data berhasil diimport!" << endl;
+            }
+        }
     }
 }
 
@@ -1237,17 +1321,17 @@ void userInput_hapusRekening_Norek() {
 // -----------------------------------------------------------------------------------------
 
 int main() {
-    if(runTestCase) testCase();
-    cout << "Membuka sistem pengelolaan rekening tabungan sederhana...\n";
-    decryptImport();
-    cout << "Melakukan pembersihan file tidak diperlukan...\n";
-    remove("rekening_decrypt.txt");
-    remove("transaksi_decrypt.txt");
-
+    if(runTestCase){
+        testCase();
+    } else {
+        cout << "Membuka sistem pengelolaan rekening tabungan sederhana...\n";
+        decryptImport_all();
+    }
 
     int pilihan;
     string input_string;
     unsigned int input_unsignedInt;
+    Rekening* queryRekening = nullptr;
 
     while (true) {
         cout << "\n=== Menu Utama ===\n";
@@ -1311,13 +1395,15 @@ int main() {
                         cout << "Masukkan nama nasabah yang dicari: ";
                         getline(cin, input_string);
                         cout << endl;
-                        cariNasabah_Nama(input_string)->printInfo();
+                        queryRekening = cariNasabah_Nama(input_string);
+                        if(queryRekening != nullptr) queryRekening->printInfo();
                         break;
                     case 3:
                         cout << "Masukkan nomor rekening yang dicari: ";
                         cin >> input_unsignedInt;
                         cin.ignore();
-                        cariNasabah_Norek(input_unsignedInt)->printInfo();
+                        queryRekening = cariNasabah_Norek(input_unsignedInt);
+                        if(queryRekening != nullptr) queryRekening->printInfo();
                         break;
                     case 9:
                         continue; // Balik ke menu utama
@@ -1373,7 +1459,7 @@ int main() {
                 break;
             case 7:
                 cout << endl;
-                exportEncrypt();
+                exportEncrypt_all();
                 break;
             case 8:
                 cout << endl;
@@ -1390,10 +1476,7 @@ int main() {
                     delete bantu;
                 }
                 
-                decryptImport();
-                cout << "Melakukan pembersihan file tidak diperlukan...\n";
-                remove("rekening_decrypt.txt");
-                remove("transaksi_decrypt.txt");
+                decryptImport_all();
                 break;
             case 0:
                 cout << "\nSimpan perubahan?\n";
@@ -1407,7 +1490,7 @@ int main() {
                 switch (pilihan) {
                     case 1:
                         cout << endl;
-                        exportEncrypt();
+                        exportEncrypt_all();
                         cout << "\nTerima kasih!\n";
                         return 0; // Keluar dari program
                     case 2:
