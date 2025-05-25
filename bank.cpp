@@ -893,24 +893,6 @@ void testCase() {
     cout << "Saldo Rizky setelah pembatalan transaksi: " << cariNasabah_Nama("Rizky Aditya")->printSaldo() << endl;
 }
 
-void ExportToFile() {
-    ofstream file("data.txt");
-    if (file.is_open()) {
-        // cout << "file is open" <<endl;
-        for (auto& r : daftarRekening) {
-            // cout << "this runs" << endl;
-            if (r != nullptr) {
-                //cout << r->getSemua() << endl;
-                file << r->getSemua() << endl;
-            }
-        }
-        file.close();
-        cout << "Data berhasil diekspor ke data.txt" << endl;
-    } else {
-        cout << "Gagal membuka file untuk menulis." << endl;
-    }
-}
-
 class encdec {
     int key;
 
