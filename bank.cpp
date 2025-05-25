@@ -540,77 +540,68 @@ void hapusRekening_Norek(unsigned int norek) {
     
     if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
     {
-        // cout << "norek ada di norekTerpakai" << endl;  // testcase hapus norek
-        // hash fucntion dasar
-        int iProbeSearch = 0;
-        double hashVal = static_cast<double>(norek) * 0.61;
-        double frac = hashVal - floor(hashVal);
-        int index = floor(frac * (daftarRekening.size()));
-        // cout << "pencarian awal di index " << index << endl;  // testcase hapus norek
+        int m = daftarRekening.size();
+        int h1 = norek % m;
+        int index = h1;
 
-        bool found = false;
-
-        // probing
-        while (daftarRekening[index] != nullptr && !found) {
-            // cout << "checking index " << index << endl; // testcase hapus norek
-            // cout << "daftarRekening[index]->getNorek() = " << daftarRekening[index]->getNorek() << endl;
-            if (daftarRekening[index]->getNorek() == norek)
-            {
-                // cout << "true" << endl; // testcase hapus norek
-                found = true;
-            } else {
-                // cout << "not this one" << endl; // testcase hapus norek
-                ++iProbeSearch;
-                index = (index + iProbeSearch * iProbeSearch) % (daftarRekening.size());
-            }
-        }
-
-        Rekening *queryRekening = daftarRekening[index];
-
-        if (queryRekening != nullptr)
+        if (daftarRekening[index] != nullptr)
         {
-            // menghindari pointer dangling pada transaksi
-            Transaksi* bantu = HeadTransaksiSemua;
-            while (bantu != nullptr)
-            {
-                bantu->printTransaksi(); // testcase hapus norek
-                if (bantu->getRekeningAsal()->getNorek() == norek) {
-                    bantu->rekeningDihapus();
-                    // cout << "ketemu transaksi oleh norek " << norek << endl; // testcase hapus norek
-                }
+            int i = 1;
+            int h2 = 1 + (norek % (m-1));
+            bool found = false;
 
-                if (bantu->getJenisTransaksi() == TRANSFER)
+            // probing
+            while (daftarRekening[index] != nullptr && !found) {
+                if (daftarRekening[index]->getNorek() == norek)
                 {
-                    if (bantu->getRekeningTujuan()->getNorek() == norek)
-                    {
-                        bantu->rekeningTujuanDihapus();
-                        // cout << "ketemu transaksi transfer ke norek " << norek << endl; // testcase hapus norek
-                    }
+                    found = true;
+                } else {
+                    index = (h1 + i * h2) % m;
+                    i++;
                 }
-                
-                bantu = bantu->beforeThis;
-                // cout << "geser bantu" << endl; // testcase hapus transaksi
             }
-            // cout << "selesai check semua transaksi" << endl; // testcase hapus transaksi
-
-            // hapus rekening
-            Rekening* hapus = daftarRekening[index];
-            queryRekening->histori.clear();
-            // cout << "berhasil inisialisasi hapus" << endl; // testcase hapus transaksi
-            daftarRekening[index] = nullptr;
-            // cout << "berhasil mengosongkan daftarRekening[index]" << endl; // testcase hapus transaksi
-            delete hapus;
-            // cout << "berhasil menghapus rekening" << endl; // testcase hapus transaksi
-            cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
-            rehashing_deletion(&daftarRekening);
-            return;
-        } else {
-            cout << "Rekening nasabah dengan nomor rekening " << norek << " sudah terhapus.\n";
-            return;
         }
+
+        if (daftarRekening[index] == nullptr)
+        {
+            cout << "Rekening nasabah dengan nomor rekening " << norek << " sudah terhapus.\n";
+            return; 
+        }
+
+        // menghindari pointer dangling pada transaksi
+        Transaksi* bantu = HeadTransaksiSemua;
+        while (bantu != nullptr)
+        {
+            if (bantu->getRekeningAsal()->getNorek() == norek) {
+                bantu->rekeningDihapus();
+                // cout << "ketemu transaksi oleh norek " << norek << endl; // testcase hapus norek
+            }
+
+            if (bantu->getJenisTransaksi() == TRANSFER)
+            {
+                if (bantu->getRekeningTujuan()->getNorek() == norek)
+                {
+                    bantu->rekeningTujuanDihapus();
+                    // cout << "ketemu transaksi transfer ke norek " << norek << endl; // testcase hapus norek
+                }
+            }
+            
+            bantu = bantu->beforeThis;
+            // cout << "geser bantu" << endl; // testcase hapus transaksi
+        }
+
+        Rekening* hapus = daftarRekening[index];
+        hapus->histori.clear();
+        daftarRekening[index] = nullptr;
+        delete hapus;
+        cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
+        rehashing_deletion(&daftarRekening);
+        
+        return;
     } else {
         // tidak ada norek dicari di data norek yang pernah digenerate sistem
-        cout << "Tidak pernah ada nasabah dengan nomor rekening " << norek << endl;
+        cout << "Tidak pernah ada rekening tabungan dengan nomor rekening " << norek << endl;
+        return;
     }
 }
 
