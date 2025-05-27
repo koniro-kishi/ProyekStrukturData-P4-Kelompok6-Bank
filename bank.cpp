@@ -379,39 +379,31 @@ int doubleHashing(vector<Rekening*>* targetMap, unsigned int key){
     return index;
 }
 
-// Fungsi insertion ke hashmap yang tidak perlu cek threshold, dipanggil saat rehashing
-void insertToHashMapWithoutRehashing(vector<Rekening*>* targetMap, Rekening* input) {
-    (*targetMap)[doubleHashing(targetMap, input->getNorek())] = input;
-    slotTerisi++;
-}
-
 // Fungsi rehashing ketika load factor mencapai threshold yang telah ditentukan 
 void rehashing_insertion(vector<Rekening*>* targetMap) {
-    int m = targetMap->size();
-    float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(m);
+    // Membuat hash map baru
+    vector<Rekening*> hashMapBaru(findNextPrime(targetMap->size()*2), nullptr);
 
-    if (loadFactor >= threshold) {
-        // Membuat hash map baru
-        vector<Rekening*> hashMapBaru(findNextPrime(m*2), nullptr);
-
-        // Memindahkan tiap pointer Rekening ke hash map yang baru
-        for (int i = 0; i < targetMap->size(); i++) {
-            if ((*targetMap)[i] != nullptr) {
-                insertToHashMapWithoutRehashing(&hashMapBaru, (*targetMap)[i]);
-            }
+    // Memindahkan tiap pointer Rekening ke hash map yang baru
+    for (int i = 0; i < targetMap->size(); i++) {
+        if ((*targetMap)[i] != nullptr) {
+            (hashMapBaru)[doubleHashing(&hashMapBaru, (*targetMap)[i]->getNorek())] = (*targetMap)[i];
         }
-
-        // Pointer daftar Rekening sekarang merujuk ke hashmap yang baru
-        *targetMap = hashMapBaru;
     }
+
+    // Pointer daftar Rekening sekarang merujuk ke hashmap yang baru
+    *targetMap = hashMapBaru;
 }
 
 // Fungsi untuk memasukkan Rekening ke dalam struktur hash map
 // Hashing dengen metode multiplication method agar ukuran hash map tidak kritis
 void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
 
-    // memastikan load factor tidak melewati threshold
-    rehashing_insertion(targetMap);
+    float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
+
+    if (loadFactor >= threshold) {
+        rehashing_insertion(targetMap);
+    }
 
     // Rekening baru disimpan ke slot kosong hash map, jumlah slot terisi bertambah
     (*targetMap)[doubleHashing(targetMap, input->getNorek())] = input;
@@ -426,7 +418,7 @@ void rehashing_deletion(vector<Rekening*>* targetMap) {
     // Memindahkan tiap pointer Rekening ke hash map yang baru
     for (int i = 0; i < targetMap->size(); i++) {
         if ((*targetMap)[i] != nullptr) {
-            insertToHashMapWithoutRehashing(&hashMapBaru, (*targetMap)[i]);
+            (hashMapBaru)[doubleHashing(&hashMapBaru, (*targetMap)[i]->getNorek())] = (*targetMap)[i];
         }
     }
 
@@ -566,35 +558,25 @@ void hapusRekening_Norek(unsigned int norek) {
             return; 
         }
 
-        // menghindari pointer dangling pada transaksi
-        Transaksi* bantu = HeadTransaksiSemua;
-        while (bantu != nullptr)
-        {
-            if (bantu->getRekeningAsal()->getNorek() == norek) {
-                bantu->rekeningDihapus();
-                // cout << "ketemu transaksi oleh norek " << norek << endl; // testcase hapus norek
+        // Menghindari pointer dangling pada transaksi dengan menggunakan histori rekening
+        Rekening* hapus = daftarRekening[index];
+        for (Transaksi* t : hapus->histori) {
+            if (t->getRekeningAsal() == hapus) {
+            t->rekeningDihapus();
             }
-
-            if (bantu->getJenisTransaksi() == TRANSFER)
-            {
-                if (bantu->getRekeningTujuan()->getNorek() == norek)
-                {
-                    bantu->rekeningTujuanDihapus();
-                    // cout << "ketemu transaksi transfer ke norek " << norek << endl; // testcase hapus norek
-                }
+            if (t->getJenisTransaksi() == TRANSFER) {
+            if (t->getRekeningTujuan() == hapus) {
+                t->rekeningTujuanDihapus();
             }
-            
-            bantu = bantu->beforeThis;
-            // cout << "geser bantu" << endl; // testcase hapus transaksi
+            }
         }
 
-        Rekening* hapus = daftarRekening[index];
         hapus->histori.clear();
         daftarRekening[index] = nullptr;
         delete hapus;
         cout << "Rekening dengan norek " << norek << " berhasil dihapus.\n";
         rehashing_deletion(&daftarRekening);
-        
+        slotTerisi--;
         return;
     } else {
         // tidak ada norek dicari di data norek yang pernah digenerate sistem
