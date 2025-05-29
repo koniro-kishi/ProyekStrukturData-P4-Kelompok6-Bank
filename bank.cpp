@@ -35,8 +35,8 @@ double threshold = 0.5;
 int slotTerisi = 0;
 vector<unsigned int> norekTerpakai;
 vector<Rekening*> daftarRekening(11, nullptr);
-Transaksi* TailTransaksi = nullptr;
-Transaksi* HeadTransaksi = nullptr;
+Transaksi* headTransaksi = nullptr;
+Transaksi* tailTransaksi = nullptr;
 
 // ------------------------------------------------------------------------------------------
 
@@ -71,16 +71,16 @@ class Transaksi {
         Transaksi* afterThis;   //prev
 
         void rearrangePointer(){
-            if (TailTransaksi == nullptr)
+            if (headTransaksi == nullptr)
             {
-                TailTransaksi = this;
-                HeadTransaksi = this;
+                headTransaksi = this;
+                tailTransaksi = this;
                 beforeThis = nullptr;
                 afterThis = nullptr;
             } else {
-                TailTransaksi->afterThis = this;
-                beforeThis = TailTransaksi;
-                TailTransaksi = this;
+                headTransaksi->afterThis = this;
+                beforeThis = headTransaksi;
+                headTransaksi = this;
                 afterThis = nullptr;
             }
         }
@@ -656,9 +656,9 @@ void transfer(Rekening *pengirim, Rekening *penerima, double jml) {
 
 void tampilkanTransaksi_Semua(){
     cout << "\n=== Menampilkan Semua Riwayat Transaksi ===\n";
-    if (TailTransaksi != nullptr)
+    if (headTransaksi != nullptr)
     {
-        Transaksi* print = TailTransaksi;
+        Transaksi* print = headTransaksi;
         while (print != nullptr)
         {
             print->printTransaksi();
@@ -713,28 +713,28 @@ void tampilkanTransaksi_Rekening_Transfer(unsigned int norek) {
 void undoTransaksi(){
     cout << "\n=== Membatalkan transaksi terakhir ===\n";
     cout << "Transaksi terakhir adalah:\n";
-    TailTransaksi->printTransaksi();
+    headTransaksi->printTransaksi();
 
     // balikin uangnya
-    switch (TailTransaksi->getJenisTransaksi())
+    switch (headTransaksi->getJenisTransaksi())
     {
     case SETOR:
-        TailTransaksi->getRekeningAsal()->balikinSetor(TailTransaksi->getjumlah());
+        headTransaksi->getRekeningAsal()->balikinSetor(headTransaksi->getjumlah());
         break;
 
     case TARIK:
-        TailTransaksi->getRekeningAsal()->balikinTarik(TailTransaksi->getjumlah());
+        headTransaksi->getRekeningAsal()->balikinTarik(headTransaksi->getjumlah());
         break;
 
     case TRANSFER:
-        if (TailTransaksi->getRekeningAsal() != nullptr && TailTransaksi->getRekeningTujuan() != nullptr)
+        if (headTransaksi->getRekeningAsal() != nullptr && headTransaksi->getRekeningTujuan() != nullptr)
         {
             // balikin uang pengirim
-            TailTransaksi->getRekeningAsal()
-            ->balikinKirimTransfer(TailTransaksi->getjumlah(), TailTransaksi->getBiayaAdmin());
+            headTransaksi->getRekeningAsal()
+            ->balikinKirimTransfer(headTransaksi->getjumlah(), headTransaksi->getBiayaAdmin());
             // balikin uang penerima
-            TailTransaksi->getRekeningTujuan()
-            ->balikinTerimaTransfer(TailTransaksi->getjumlah());
+            headTransaksi->getRekeningTujuan()
+            ->balikinTerimaTransfer(headTransaksi->getjumlah());
         } else {
             cout << "Salah satu rekening sudah dihapus sehingga transaksi tidak bisa di-undo\n";
             return;
@@ -745,10 +745,10 @@ void undoTransaksi(){
         break;
     }
 
-    Transaksi* hapus = TailTransaksi;
-    TailTransaksi = TailTransaksi->beforeThis;
-    if (TailTransaksi == nullptr) HeadTransaksi = nullptr;
-    TailTransaksi->afterThis = nullptr;
+    Transaksi* hapus = headTransaksi;
+    headTransaksi = headTransaksi->beforeThis;
+    if (headTransaksi == nullptr) tailTransaksi = nullptr;
+    headTransaksi->afterThis = nullptr;
     delete hapus;
     cout << "Transaksi terakhir berhasil dibatalkan\n";
 }
@@ -859,7 +859,7 @@ void testCase() {
     // ---------------------------------------------------------------------------
 
     cout << "Membatalkan transaksi terakhir yaitu:\n";
-    TailTransaksi->printTransaksi();
+    headTransaksi->printTransaksi();
     cout << "Saldo Najma sebelum pembatalan transaksi: " << cariNasabah_Nama("NAJMA HAMIDA")->printSaldo() << endl;
     cout << "Saldo Rizky sebelum pembatalan transaksi: " << cariNasabah_Nama("Rizky Aditya")->printSaldo() << endl;
     undoTransaksi();
@@ -993,7 +993,7 @@ bool exportEncrypt_transaksi(){
             // menulis setiap transaksi ke dalam transaksi_data.txt, belum terenkripsi
             // dari tail maju ke depan
             // karena nanti perlu nyimpen prev
-            Transaksi* tailSimpan = HeadTransaksi;
+            Transaksi* tailSimpan = tailTransaksi;
             while (tailSimpan != nullptr)
             {
                 transaksi << tailSimpan->getSemua() << endl;
@@ -1447,10 +1447,10 @@ int main() {
                 norekTerpakai.clear();
                 
                 Transaksi* bantu;
-                while (TailTransaksi != nullptr)
+                while (headTransaksi != nullptr)
                 {
-                    bantu = TailTransaksi;
-                    TailTransaksi = TailTransaksi->beforeThis;
+                    bantu = headTransaksi;
+                    headTransaksi = headTransaksi->beforeThis;
                     delete bantu;
                 }
                 
