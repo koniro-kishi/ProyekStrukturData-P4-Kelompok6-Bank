@@ -11,7 +11,7 @@ using namespace std;
 #define runTestCase false
 
 // ------------------------------ FORWARD DECLARATION --------------------------------------
-// fungsi2 disini dideklarasi duluan tanpa defini dia ngapain
+// fungsi-funsgi disini dideklarasi duluan tanpa defini dia ngapain
 // fungsi lain yang didefinsikan duluan bisa manggil fungsi forward declaration
 // misal cariNasabah_Norek. Dia dipanggil di constructor class Transfer
 // meskipun didefinisikan di bawah class Transfer
@@ -154,7 +154,7 @@ public:
 
         // Menggenerasi nomor Rekening unik (terpisah dari hash value hash map)
         // Hal ini bertujuan menghindari nomor Rekening ikut berubah ketika rehashing
-        // Semacam encryption
+        // Semacam encoding
         generateNorek(namaNasabah);
     }
 
@@ -181,7 +181,7 @@ public:
     }
 
     void generateNorek(string namaNasabah) {
-        // A-Z + " " + "'" = 28, kadi ada 28 kemungkinkan char
+        // A-Z + " " + "'" = 28, jadi ada 28 kemungkinkan char
         for (int i = 0; i < namaNasabah.length(); i++) {
             norek += namaNasabah[i] * static_cast<int>(pow(28, i % 6));
         }
@@ -246,7 +246,7 @@ public:
         if (jml > 0) {
             unsigned int jumlah = UangInputKeSistem(jml);
             saldo += jumlah;
-            Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // bikin log transaksi setor
+            Transaksi* trans = new Transaksi(norek, jumlah, SETOR); // buat log transaksi setor
             tambahTransaksiAkun(trans);     // tambah log transaksi ke histori transkasi
             cout << "Setoran berhasil. Saldo sekarang: Rp" << printSaldo() << endl;
         } else {
@@ -316,7 +316,7 @@ public:
     }
 };
 
-// Transfer di bawah rekening soalnya manggil fungsi milik class rekening
+// Transfer di bawah rekening karena memanggil fungsi milik class rekening
 class Transfer : public Transaksi {
     private:
         Rekening* rekeningTujuan;
@@ -398,7 +398,6 @@ void rehashing_insertion(vector<Rekening*>* targetMap) {
 }
 
 // Fungsi untuk memasukkan Rekening ke dalam struktur hash map
-// Hashing dengen metode multiplication method agar ukuran hash map tidak kritis
 void insertToHashMap(vector<Rekening*>* targetMap, Rekening* input) {
 
     float loadFactor = static_cast<float>(slotTerisi) / static_cast<float>(targetMap->size());
@@ -478,20 +477,20 @@ Rekening* cariNasabah_Nama(const string& nama) {
 
     // loop untuk mencari pointer dengan nama nasabah dicari
     for (int i = 0; i < daftarRekening.size(); i++) {
-        if (daftarRekening[i] != nullptr) {                             // kalau null gak usah dicek
+        if (daftarRekening[i] != nullptr) {                             // jika null gak usah dicek
             if (query == daftarRekening[i]->getNamaNasabah()) {         // mencocokkan nama nasabah
                 return daftarRekening[i];                               // benar: balikkan pointer
             }
         }
     }
 
-    // kalau tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
+    // jika tidak kena return saat semua rekening sudah dicek berarti nama tidak ada
     cout << "Nasabah dengan nama " << query << " tidak ditemukan atau sudah dihapus" << endl;
     return nullptr;
 }
 
 Rekening* cariNasabah_Norek(unsigned int norek) {
-    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
+    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dahulu apakah ada
     {
         int m = daftarRekening.size();
         int h1 = norek % m;
@@ -530,7 +529,7 @@ Rekening* cariNasabah_Norek(unsigned int norek) {
 
 void hapusRekening_Norek(unsigned int norek) {
     
-    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dulu apakah ada
+    if (binarySearchRecursive(norekTerpakai, norek, 0, norekTerpakai.size()) != -1) // cek dAHulu apakah ada
     {
         int m = daftarRekening.size();
         int h1 = norek % m;
@@ -729,10 +728,10 @@ void undoTransaksi(){
     case TRANSFER:
         if (headTransaksi->getRekeningAsal() != nullptr && headTransaksi->getRekeningTujuan() != nullptr)
         {
-            // balikin uang pengirim
+            // Mmengembalikkan uang pengirim
             headTransaksi->getRekeningAsal()
             ->balikinKirimTransfer(headTransaksi->getjumlah(), headTransaksi->getBiayaAdmin());
-            // balikin uang penerima
+            // mengembalikkan uang penerima
             headTransaksi->getRekeningTujuan()
             ->balikinTerimaTransfer(headTransaksi->getjumlah());
         } else {
@@ -991,8 +990,7 @@ bool exportEncrypt_transaksi(){
             // cout << "data is open" <<endl;
 
             // menulis setiap transaksi ke dalam transaksi_data.txt, belum terenkripsi
-            // dari tail maju ke depan
-            // karena nanti perlu nyimpen prev
+            // dari head (transaksi pertama) ke tail (transaksi terakhir)
             Transaksi* tailSimpan = tailTransaksi;
             while (tailSimpan != nullptr)
             {
