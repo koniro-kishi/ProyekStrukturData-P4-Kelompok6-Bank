@@ -1,7 +1,36 @@
-Gunakan key:
+Sistem Pengelolaan Rekening Tabungan Sederhana Menggunakan Struktur Data Stack, Sorting, Hashing, dan Enkripsi
 
-norek -> 3
+Najma Hamidha (G6401231004)
 
-rekening -> 4
+Salsabila Aulia Mulya Putri (G6401231020)
 
-transaksi -> 5
+Muhammad Syafiq Romadhon (G6401231079)
+
+.
+
+CATATAN:
+
+Gunakan key berikut untuk membuka data-data terenkripsi:
+
+norek -> 6
+
+rekening -> 7
+
+transaksi -> 8
+
+.
+
+Topik:
+
+Sistem Pengelolaan Rekening Tabungan Sederhana
+
+Deskripsi:
+
+Simulasi bank kecil, stack untuk undo transaksi, sorting nasabah berdasarkan saldo, hashing nomor rekening, enkripsi file nasabah.
+
+Struktur disarankan:
+- Stack (undo transaksi)
+- Sorting (saldo)
+- Hashing (no. rekening)
+- Enkripsi (file nasabah)
+
